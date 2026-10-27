@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
+import { Difficulty } from '../data/questions';
 import { POINTS_PER_CORRECT, QUESTIONS_PER_ROUND, RoundQuestion, TIMED_OUT } from '../game';
-import { colors, useCompactLayout, useLargeLayout, useTopicTheme } from '../theme';
+import { colors, DIFFICULTY_COLORS, useCompactLayout, useLargeLayout, useTopicTheme } from '../theme';
 import { AnswerButton, AnswerState } from './AnswerButton';
 import { AnswerFeedback } from './AnswerFeedback';
 import { AppText } from './AppText';
@@ -8,6 +9,8 @@ import { CardWatermark } from './CardWatermark';
 import { TimerBar, TimerPill, useQuestionTimer } from './QuestionTimer';
 
 const LETTERS = ['A', 'B', 'C', 'D'];
+
+const DIFFICULTY_LABELS: Record<Difficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
 
 type Props = {
   item: RoundQuestion;
@@ -54,8 +57,16 @@ export function QuestionCard({ item, index, picked, onPick, started, onTimeout, 
           {index + 1}/{QUESTIONS_PER_ROUND}
         </AppText>
         <TimerPill secondsLeft={secondsLeft} />
-        <AppText style={[styles.category, { color: theme.accent, backgroundColor: theme.accentSoft }]}>
-          {item.question.category}
+        <AppText
+          style={[
+            styles.difficulty,
+            {
+              color: DIFFICULTY_COLORS[item.question.difficulty].text,
+              backgroundColor: DIFFICULTY_COLORS[item.question.difficulty].background,
+            },
+          ]}
+        >
+          {DIFFICULTY_LABELS[item.question.difficulty]}
         </AppText>
       </View>
       <TimerBar progress={progress} secondsLeft={secondsLeft} />
@@ -82,9 +93,11 @@ export function QuestionCard({ item, index, picked, onPick, started, onTimeout, 
               </AppText>
             )}
           </View>
-          <AppText weight="regular" style={[styles.fact, compact && styles.factCompact]}>
-            {item.question.fact}
-          </AppText>
+          {item.question.fact && (
+            <AppText weight="regular" style={[styles.fact, compact && styles.factCompact]}>
+              {item.question.fact}
+            </AppText>
+          )}
         </View>
       )}
 
@@ -131,7 +144,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
   },
-  category: {
+  difficulty: {
     fontSize: 13,
     paddingHorizontal: 10,
     paddingVertical: 5,

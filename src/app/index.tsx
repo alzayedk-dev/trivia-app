@@ -67,6 +67,9 @@ export default function HomeScreen() {
             {QUESTIONS_PER_ROUND} questions
           </AppText>
           <AppText style={[styles.chip, { color: theme.accent, backgroundColor: theme.accentSoft }]}>
+            Easy to hard
+          </AppText>
+          <AppText style={[styles.chip, { color: theme.accent, backgroundColor: theme.accentSoft }]}>
             {POINTS_PER_CORRECT} points each
           </AppText>
         </View>
@@ -74,6 +77,10 @@ export default function HomeScreen() {
 
       <View style={styles.footer}>
         <Button label="Start" arrow onPress={() => router.push('/game')} />
+        {/* Required credit for the Open Trivia Database (CC BY-SA 4.0). */}
+        <AppText weight="regular" muted style={styles.credit}>
+          Questions from Open Trivia Database (opentdb.com), CC BY-SA 4.0
+        </AppText>
       </View>
 
       {SHARE_URL && (
@@ -90,7 +97,8 @@ const styles = StyleSheet.create({
   title: { fontSize: 46, lineHeight: 54, marginTop: 16 },
   titleCompact: { fontSize: 38, lineHeight: 46 },
   tagline: { fontSize: 18, textAlign: 'center' },
-  chips: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 8 },
   chip: { fontSize: 14, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, overflow: 'hidden' },
-  footer: { paddingHorizontal: 16, paddingBottom: 12 },
+  footer: { paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
+  credit: { fontSize: 12, textAlign: 'center' },
 });

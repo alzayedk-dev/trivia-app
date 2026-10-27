@@ -23,6 +23,13 @@ export const colors = {
   shadow: '#13405A',
 };
 
+// Tag colours for each question's difficulty.
+export const DIFFICULTY_COLORS = {
+  easy: { text: colors.correct, background: colors.correctSoft },
+  medium: { text: '#A8650F', background: '#FDF0DA' },
+  hard: { text: colors.wrong, background: colors.wrongSoft },
+};
+
 // A topic is a whole quiz subject (Geography, later maybe History or Science).
 // Each topic gets its own text colour, accent, background art and answer animations.
 export type Topic = 'geography';

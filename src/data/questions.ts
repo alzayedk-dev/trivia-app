@@ -1,31 +1,25 @@
-export type Category =
-  | 'Capitals'
-  | 'Mountains & Water'
-  | 'Countries'
-  | 'Landmarks'
-  | 'Maps & Borders';
+export type Difficulty = 'easy' | 'medium' | 'hard';
 
 export type Question = {
+  // Built-in ids are readable slugs; database questions get "otdb:" + a hash.
   id: string;
-  category: Category;
+  difficulty: Difficulty;
+  // e.g. "Capitals" for built-in questions, "Geography" for database ones.
+  category: string;
   prompt: string;
   // The first option is always the correct answer; options are shuffled at play time.
-  options: [string, string, string, string];
-  fact: string;
+  options: string[];
+  // Only built-in questions have a fun fact.
+  fact?: string;
 };
 
-export const CATEGORIES: Category[] = [
-  'Capitals',
-  'Mountains & Water',
-  'Countries',
-  'Landmarks',
-  'Maps & Borders',
-];
-
+// The offline backup: used when the Open Trivia Database can't be reached or
+// has run out of new questions for this device.
 export const QUESTIONS: Question[] = [
   // Capitals
   {
     id: 'cap-australia',
+    difficulty: 'medium',
     category: 'Capitals',
     prompt: 'What is the capital of Australia?',
     options: ['Canberra', 'Sydney', 'Melbourne', 'Perth'],
@@ -33,6 +27,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'cap-canada',
+    difficulty: 'easy',
     category: 'Capitals',
     prompt: 'What is the capital of Canada?',
     options: ['Ottawa', 'Toronto', 'Montreal', 'Vancouver'],
@@ -40,6 +35,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'cap-turkey',
+    difficulty: 'medium',
     category: 'Capitals',
     prompt: 'What is the capital of Turkey?',
     options: ['Ankara', 'Istanbul', 'Izmir', 'Bursa'],
@@ -47,6 +43,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'cap-brazil',
+    difficulty: 'medium',
     category: 'Capitals',
     prompt: 'What is the capital of Brazil?',
     options: ['Brasília', 'Rio de Janeiro', 'São Paulo', 'Salvador'],
@@ -54,6 +51,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'cap-nigeria',
+    difficulty: 'medium',
     category: 'Capitals',
     prompt: 'What is the capital of Nigeria?',
     options: ['Abuja', 'Lagos', 'Kano', 'Ibadan'],
@@ -61,6 +59,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'cap-kazakhstan',
+    difficulty: 'hard',
     category: 'Capitals',
     prompt: 'What is the capital of Kazakhstan?',
     options: ['Astana', 'Almaty', 'Shymkent', 'Karaganda'],
@@ -68,6 +67,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'cap-myanmar',
+    difficulty: 'hard',
     category: 'Capitals',
     prompt: 'What is the capital of Myanmar?',
     options: ['Naypyidaw', 'Yangon', 'Mandalay', 'Bago'],
@@ -75,6 +75,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'cap-new-zealand',
+    difficulty: 'easy',
     category: 'Capitals',
     prompt: 'What is the capital of New Zealand?',
     options: ['Wellington', 'Auckland', 'Christchurch', 'Queenstown'],
@@ -82,6 +83,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'cap-morocco',
+    difficulty: 'medium',
     category: 'Capitals',
     prompt: 'What is the capital of Morocco?',
     options: ['Rabat', 'Casablanca', 'Marrakesh', 'Fez'],
@@ -89,6 +91,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'cap-switzerland',
+    difficulty: 'medium',
     category: 'Capitals',
     prompt: 'Which city is the seat of Switzerland’s federal government?',
     options: ['Bern', 'Zurich', 'Geneva', 'Basel'],
@@ -96,6 +99,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'cap-bolivia',
+    difficulty: 'hard',
     category: 'Capitals',
     prompt: 'Which city is the constitutional capital of Bolivia?',
     options: ['Sucre', 'La Paz', 'Santa Cruz', 'Cochabamba'],
@@ -103,6 +107,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'cap-vietnam',
+    difficulty: 'easy',
     category: 'Capitals',
     prompt: 'What is the capital of Vietnam?',
     options: ['Hanoi', 'Ho Chi Minh City', 'Da Nang', 'Huế'],
@@ -110,6 +115,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'cap-tanzania',
+    difficulty: 'hard',
     category: 'Capitals',
     prompt: 'What is the official capital of Tanzania?',
     options: ['Dodoma', 'Dar es Salaam', 'Arusha', 'Zanzibar City'],
@@ -117,6 +123,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'cap-mongolia',
+    difficulty: 'medium',
     category: 'Capitals',
     prompt: 'Which city is often called the coldest national capital in the world?',
     options: ['Ulaanbaatar', 'Moscow', 'Ottawa', 'Helsinki'],
@@ -124,6 +131,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'cap-la-paz',
+    difficulty: 'medium',
     category: 'Capitals',
     prompt: 'Which is the highest seat of government in the world?',
     options: ['La Paz', 'Quito', 'Bogotá', 'Kathmandu'],
@@ -131,6 +139,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'cap-south-africa',
+    difficulty: 'medium',
     category: 'Capitals',
     prompt: 'South Africa has three capital cities. Which of these is NOT one of them?',
     options: ['Johannesburg', 'Pretoria', 'Cape Town', 'Bloemfontein'],
@@ -138,6 +147,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'cap-pakistan',
+    difficulty: 'easy',
     category: 'Capitals',
     prompt: 'What is the capital of Pakistan?',
     options: ['Islamabad', 'Karachi', 'Lahore', 'Rawalpindi'],
@@ -145,6 +155,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'cap-reykjavik',
+    difficulty: 'medium',
     category: 'Capitals',
     prompt: 'Which is the northernmost capital of a sovereign country?',
     options: ['Reykjavík', 'Oslo', 'Helsinki', 'Nuuk'],
@@ -152,6 +163,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'cap-ivory-coast',
+    difficulty: 'hard',
     category: 'Capitals',
     prompt: 'What is the official capital of Côte d’Ivoire (Ivory Coast)?',
     options: ['Yamoussoukro', 'Abidjan', 'Bouaké', 'San-Pédro'],
@@ -159,6 +171,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'cap-uae',
+    difficulty: 'easy',
     category: 'Capitals',
     prompt: 'What is the capital of the United Arab Emirates?',
     options: ['Abu Dhabi', 'Dubai', 'Sharjah', 'Ajman'],
@@ -166,6 +179,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'cap-saudi',
+    difficulty: 'easy',
     category: 'Capitals',
     prompt: 'What is the capital of Saudi Arabia?',
     options: ['Riyadh', 'Jeddah', 'Mecca', 'Dammam'],
@@ -175,6 +189,7 @@ export const QUESTIONS: Question[] = [
   // Mountains & Water
   {
     id: 'mw-amazon',
+    difficulty: 'easy',
     category: 'Mountains & Water',
     prompt: 'Which river carries the most water in the world?',
     options: ['Amazon', 'Nile', 'Congo', 'Yangtze'],
@@ -182,6 +197,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mw-baikal',
+    difficulty: 'medium',
     category: 'Mountains & Water',
     prompt: 'Which is the deepest lake in the world?',
     options: ['Lake Baikal', 'Lake Tanganyika', 'Lake Superior', 'Caspian Sea'],
@@ -189,6 +205,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mw-caspian',
+    difficulty: 'medium',
     category: 'Mountains & Water',
     prompt: 'Which is the largest lake in the world by surface area?',
     options: ['Caspian Sea', 'Lake Superior', 'Lake Victoria', 'Lake Baikal'],
@@ -196,6 +213,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mw-sahara',
+    difficulty: 'easy',
     category: 'Mountains & Water',
     prompt: 'Which is the largest hot desert in the world?',
     options: ['Sahara', 'Arabian Desert', 'Gobi', 'Kalahari'],
@@ -203,6 +221,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mw-kilimanjaro',
+    difficulty: 'easy',
     category: 'Mountains & Water',
     prompt: 'Which is the highest mountain in Africa?',
     options: ['Kilimanjaro', 'Mount Kenya', 'Mount Stanley', 'Ras Dashen'],
@@ -210,6 +229,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mw-everest',
+    difficulty: 'easy',
     category: 'Mountains & Water',
     prompt: 'Mount Everest sits on the border between Nepal and which other country?',
     options: ['China', 'India', 'Bhutan', 'Pakistan'],
@@ -217,6 +237,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mw-aconcagua',
+    difficulty: 'medium',
     category: 'Mountains & Water',
     prompt: 'Which is the highest mountain in South America?',
     options: ['Aconcagua', 'Chimborazo', 'Huascarán', 'Ojos del Salado'],
@@ -224,6 +245,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mw-chimborazo',
+    difficulty: 'hard',
     category: 'Mountains & Water',
     prompt: 'The point on Earth’s surface farthest from the planet’s centre is the summit of which mountain?',
     options: ['Chimborazo', 'Mount Everest', 'Kilimanjaro', 'Denali'],
@@ -231,6 +253,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mw-dead-sea',
+    difficulty: 'medium',
     category: 'Mountains & Water',
     prompt: 'Where is the lowest point on dry land on Earth?',
     options: ['Shores of the Dead Sea', 'Death Valley', 'Lake Assal', 'Caspian Depression'],
@@ -238,6 +261,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mw-andes',
+    difficulty: 'easy',
     category: 'Mountains & Water',
     prompt: 'Which is the longest mountain range on land?',
     options: ['Andes', 'Rocky Mountains', 'Himalayas', 'Ural Mountains'],
@@ -245,6 +269,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mw-danube',
+    difficulty: 'hard',
     category: 'Mountains & Water',
     prompt: 'Which river flows through more countries than any other?',
     options: ['Danube', 'Nile', 'Rhine', 'Mekong'],
@@ -252,6 +277,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mw-greenland',
+    difficulty: 'easy',
     category: 'Mountains & Water',
     prompt: 'Which is the largest island in the world (not counting Australia)?',
     options: ['Greenland', 'New Guinea', 'Borneo', 'Madagascar'],
@@ -259,6 +285,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mw-angel-falls',
+    difficulty: 'medium',
     category: 'Mountains & Water',
     prompt: 'Angel Falls, the world’s highest uninterrupted waterfall, is in which country?',
     options: ['Venezuela', 'Brazil', 'Colombia', 'Guyana'],
@@ -266,6 +293,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mw-gibraltar',
+    difficulty: 'easy',
     category: 'Mountains & Water',
     prompt: 'Which strait separates Europe from Africa?',
     options: ['Strait of Gibraltar', 'Bosporus', 'Dardanelles', 'Strait of Messina'],
@@ -273,6 +301,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mw-bering',
+    difficulty: 'easy',
     category: 'Mountains & Water',
     prompt: 'Which strait separates Asia from North America?',
     options: ['Bering Strait', 'Davis Strait', 'Strait of Hormuz', 'Strait of Magellan'],
@@ -280,6 +309,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mw-mariana',
+    difficulty: 'easy',
     category: 'Mountains & Water',
     prompt: 'The Mariana Trench, the deepest part of the ocean, is in which ocean?',
     options: ['Pacific', 'Indian', 'Atlantic', 'Arctic'],
@@ -287,6 +317,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mw-arctic',
+    difficulty: 'easy',
     category: 'Mountains & Water',
     prompt: 'Which is the smallest of the world’s oceans?',
     options: ['Arctic', 'Southern', 'Indian', 'Atlantic'],
@@ -294,6 +325,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mw-coastline',
+    difficulty: 'medium',
     category: 'Mountains & Water',
     prompt: 'Which country has the longest coastline in the world?',
     options: ['Canada', 'Russia', 'Indonesia', 'Australia'],
@@ -301,6 +333,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mw-victoria-falls',
+    difficulty: 'medium',
     category: 'Mountains & Water',
     prompt: 'Victoria Falls lies on the border of Zambia and which other country?',
     options: ['Zimbabwe', 'Botswana', 'Mozambique', 'Malawi'],
@@ -308,6 +341,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mw-reef',
+    difficulty: 'easy',
     category: 'Mountains & Water',
     prompt: 'The Great Barrier Reef lies off the coast of which Australian state?',
     options: ['Queensland', 'New South Wales', 'Western Australia', 'Northern Territory'],
@@ -315,6 +349,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mw-mauna-kea',
+    difficulty: 'hard',
     category: 'Mountains & Water',
     prompt: 'Measured from its base on the sea floor, which is the tallest mountain on Earth?',
     options: ['Mauna Kea', 'Mount Everest', 'K2', 'Denali'],
@@ -322,6 +357,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mw-k2',
+    difficulty: 'medium',
     category: 'Mountains & Water',
     prompt: 'Which is the second-highest mountain in the world?',
     options: ['K2', 'Kangchenjunga', 'Lhotse', 'Makalu'],
@@ -329,6 +365,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mw-atacama',
+    difficulty: 'medium',
     category: 'Mountains & Water',
     prompt: 'The Atacama, the driest non-polar desert on Earth, is mostly in which country?',
     options: ['Chile', 'Peru', 'Argentina', 'Bolivia'],
@@ -338,6 +375,7 @@ export const QUESTIONS: Question[] = [
   // Countries
   {
     id: 'co-africa',
+    difficulty: 'easy',
     category: 'Countries',
     prompt: 'Which continent has the most countries?',
     options: ['Africa', 'Asia', 'Europe', 'South America'],
@@ -345,6 +383,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'co-vatican',
+    difficulty: 'easy',
     category: 'Countries',
     prompt: 'Which is the smallest country in the world by area?',
     options: ['Vatican City', 'Monaco', 'San Marino', 'Liechtenstein'],
@@ -352,6 +391,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'co-canada-size',
+    difficulty: 'medium',
     category: 'Countries',
     prompt: 'After Russia, which is the largest country in the world by area?',
     options: ['Canada', 'China', 'United States', 'Brazil'],
@@ -359,6 +399,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'co-france-timezones',
+    difficulty: 'hard',
     category: 'Countries',
     prompt: 'Counting its overseas territories, which country spans the most time zones?',
     options: ['France', 'Russia', 'United States', 'United Kingdom'],
@@ -366,6 +407,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'co-uzbekistan',
+    difficulty: 'hard',
     category: 'Countries',
     prompt: 'Which of these is one of only two “doubly landlocked” countries?',
     options: ['Uzbekistan', 'Kazakhstan', 'Mongolia', 'Bolivia'],
@@ -373,6 +415,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'co-kazakhstan',
+    difficulty: 'medium',
     category: 'Countries',
     prompt: 'Which is the largest landlocked country in the world?',
     options: ['Kazakhstan', 'Mongolia', 'Chad', 'Niger'],
@@ -380,6 +423,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'co-lesotho',
+    difficulty: 'medium',
     category: 'Countries',
     prompt: 'Which country is completely surrounded by South Africa?',
     options: ['Lesotho', 'Eswatini', 'Botswana', 'Namibia'],
@@ -387,6 +431,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'co-nigeria',
+    difficulty: 'medium',
     category: 'Countries',
     prompt: 'Which country has the largest population in Africa?',
     options: ['Nigeria', 'Ethiopia', 'Egypt', 'DR Congo'],
@@ -394,6 +439,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'co-sudan',
+    difficulty: 'hard',
     category: 'Countries',
     prompt: 'Which country has more ancient pyramids than any other?',
     options: ['Sudan', 'Egypt', 'Mexico', 'Peru'],
@@ -401,6 +447,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'co-paraguay',
+    difficulty: 'medium',
     category: 'Countries',
     prompt: 'Which of these South American countries is landlocked?',
     options: ['Paraguay', 'Uruguay', 'Ecuador', 'Guyana'],
@@ -408,6 +455,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'co-siam',
+    difficulty: 'easy',
     category: 'Countries',
     prompt: 'Which country was formerly known as Siam?',
     options: ['Thailand', 'Cambodia', 'Laos', 'Myanmar'],
@@ -415,6 +463,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'co-persia',
+    difficulty: 'easy',
     category: 'Countries',
     prompt: 'Which country was known internationally as Persia until 1935?',
     options: ['Iran', 'Iraq', 'Afghanistan', 'Turkey'],
@@ -422,6 +471,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'co-ceylon',
+    difficulty: 'easy',
     category: 'Countries',
     prompt: 'Which country was formerly called Ceylon?',
     options: ['Sri Lanka', 'Maldives', 'Bangladesh', 'Myanmar'],
@@ -429,6 +479,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'co-zaire',
+    difficulty: 'medium',
     category: 'Countries',
     prompt: 'Which country was called Zaire from 1971 to 1997?',
     options: ['DR Congo', 'Republic of the Congo', 'Zambia', 'Angola'],
@@ -436,6 +487,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'co-india',
+    difficulty: 'easy',
     category: 'Countries',
     prompt: 'Which country has the largest population in the world?',
     options: ['India', 'China', 'United States', 'Indonesia'],
@@ -443,6 +495,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'co-nepal-flag',
+    difficulty: 'medium',
     category: 'Countries',
     prompt: 'Which country has the only national flag that isn’t a rectangle?',
     options: ['Nepal', 'Bhutan', 'Switzerland', 'Qatar'],
@@ -450,6 +503,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'co-canada-lakes',
+    difficulty: 'medium',
     category: 'Countries',
     prompt: 'Which country has more lakes than any other?',
     options: ['Canada', 'Finland', 'Russia', 'United States'],
@@ -457,6 +511,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'co-madagascar',
+    difficulty: 'easy',
     category: 'Countries',
     prompt: 'The island of Madagascar lies off the coast of which country?',
     options: ['Mozambique', 'Tanzania', 'Kenya', 'South Africa'],
@@ -464,6 +519,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'co-timbuktu',
+    difficulty: 'medium',
     category: 'Countries',
     prompt: 'The historic city of Timbuktu is in which country?',
     options: ['Mali', 'Niger', 'Mauritania', 'Chad'],
@@ -471,6 +527,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'co-kaliningrad',
+    difficulty: 'medium',
     category: 'Countries',
     prompt: 'Kaliningrad, wedged between Poland and Lithuania, belongs to which country?',
     options: ['Russia', 'Poland', 'Lithuania', 'Belarus'],
@@ -480,6 +537,7 @@ export const QUESTIONS: Question[] = [
   // Landmarks
   {
     id: 'lm-machu-picchu',
+    difficulty: 'easy',
     category: 'Landmarks',
     prompt: 'Machu Picchu is in which country?',
     options: ['Peru', 'Bolivia', 'Ecuador', 'Chile'],
@@ -487,6 +545,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'lm-petra',
+    difficulty: 'medium',
     category: 'Landmarks',
     prompt: 'The rock-cut city of Petra is in which country?',
     options: ['Jordan', 'Egypt', 'Israel', 'Saudi Arabia'],
@@ -494,6 +553,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'lm-angkor-wat',
+    difficulty: 'medium',
     category: 'Landmarks',
     prompt: 'Angkor Wat is in which country?',
     options: ['Cambodia', 'Thailand', 'Vietnam', 'Laos'],
@@ -501,6 +561,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'lm-chichen-itza',
+    difficulty: 'easy',
     category: 'Landmarks',
     prompt: 'The Maya city of Chichén Itzá is in which country?',
     options: ['Mexico', 'Guatemala', 'Belize', 'Honduras'],
@@ -508,6 +569,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'lm-christ-redeemer',
+    difficulty: 'easy',
     category: 'Landmarks',
     prompt: 'The Christ the Redeemer statue overlooks which city?',
     options: ['Rio de Janeiro', 'São Paulo', 'Lima', 'Buenos Aires'],
@@ -515,6 +577,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'lm-sagrada',
+    difficulty: 'easy',
     category: 'Landmarks',
     prompt: 'Gaudí’s Sagrada Família basilica is in which city?',
     options: ['Barcelona', 'Madrid', 'Seville', 'Valencia'],
@@ -522,6 +585,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'lm-uluru',
+    difficulty: 'medium',
     category: 'Landmarks',
     prompt: 'Uluru (Ayers Rock) is in which part of Australia?',
     options: ['Northern Territory', 'Western Australia', 'South Australia', 'Queensland'],
@@ -529,6 +593,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'lm-hagia-sophia',
+    difficulty: 'easy',
     category: 'Landmarks',
     prompt: 'The Hagia Sophia is in which city?',
     options: ['Istanbul', 'Athens', 'Rome', 'Ankara'],
@@ -536,6 +601,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'lm-neuschwanstein',
+    difficulty: 'easy',
     category: 'Landmarks',
     prompt: 'The fairy-tale Neuschwanstein Castle is in which country?',
     options: ['Germany', 'Austria', 'Switzerland', 'Czechia'],
@@ -543,6 +609,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'lm-moai',
+    difficulty: 'medium',
     category: 'Landmarks',
     prompt: 'The Moai statues of Easter Island belong to which country?',
     options: ['Chile', 'Peru', 'Ecuador', 'New Zealand'],
@@ -550,6 +617,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'lm-burj-khalifa',
+    difficulty: 'easy',
     category: 'Landmarks',
     prompt: 'The Burj Khalifa, the world’s tallest building, is in which city?',
     options: ['Dubai', 'Abu Dhabi', 'Doha', 'Riyadh'],
@@ -557,6 +625,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'lm-taj-mahal',
+    difficulty: 'medium',
     category: 'Landmarks',
     prompt: 'The Taj Mahal is in which Indian city?',
     options: ['Agra', 'New Delhi', 'Jaipur', 'Mumbai'],
@@ -564,6 +633,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'lm-alhambra',
+    difficulty: 'medium',
     category: 'Landmarks',
     prompt: 'The Alhambra palace is in which Spanish city?',
     options: ['Granada', 'Seville', 'Córdoba', 'Toledo'],
@@ -571,6 +641,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'lm-table-mountain',
+    difficulty: 'easy',
     category: 'Landmarks',
     prompt: 'Table Mountain overlooks which city?',
     options: ['Cape Town', 'Durban', 'Johannesburg', 'Gqeberha'],
@@ -578,6 +649,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'lm-rushmore',
+    difficulty: 'easy',
     category: 'Landmarks',
     prompt: 'Mount Rushmore is in which US state?',
     options: ['South Dakota', 'Wyoming', 'Montana', 'North Dakota'],
@@ -585,6 +657,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'lm-istanbul',
+    difficulty: 'easy',
     category: 'Landmarks',
     prompt: 'Which major city is split between two continents?',
     options: ['Istanbul', 'Cairo', 'Moscow', 'Athens'],
@@ -594,6 +667,7 @@ export const QUESTIONS: Question[] = [
   // Maps & Borders
   {
     id: 'mb-equator',
+    difficulty: 'medium',
     category: 'Maps & Borders',
     prompt: 'The Equator does NOT pass through which of these countries?',
     options: ['Nigeria', 'Brazil', 'Indonesia', 'Kenya'],
@@ -601,6 +675,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mb-longest-border',
+    difficulty: 'easy',
     category: 'Maps & Borders',
     prompt: 'Which two countries share the longest international border?',
     options: ['Canada and the US', 'Russia and Kazakhstan', 'Argentina and Chile', 'China and Mongolia'],
@@ -608,6 +683,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mb-greenwich',
+    difficulty: 'easy',
     category: 'Maps & Borders',
     prompt: 'The Prime Meridian (0° longitude) runs through which part of London?',
     options: ['Greenwich', 'Westminster', 'Camden', 'Kensington'],
@@ -615,6 +691,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mb-sargasso',
+    difficulty: 'hard',
     category: 'Maps & Borders',
     prompt: 'Which sea has no coastline at all?',
     options: ['Sargasso Sea', 'Caribbean Sea', 'Coral Sea', 'Tasman Sea'],
@@ -622,6 +699,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mb-hispaniola',
+    difficulty: 'easy',
     category: 'Maps & Borders',
     prompt: 'Haiti shares the island of Hispaniola with which country?',
     options: ['Dominican Republic', 'Cuba', 'Jamaica', 'Puerto Rico'],
@@ -629,6 +707,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mb-two-oceans',
+    difficulty: 'medium',
     category: 'Maps & Borders',
     prompt: 'Which country has coastlines on both the Atlantic and the Indian Ocean?',
     options: ['South Africa', 'Namibia', 'Mozambique', 'Madagascar'],
@@ -636,6 +715,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mb-suez',
+    difficulty: 'easy',
     category: 'Maps & Borders',
     prompt: 'The Suez Canal links the Mediterranean to which sea?',
     options: ['Red Sea', 'Arabian Sea', 'Black Sea', 'Dead Sea'],
@@ -643,6 +723,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mb-germany',
+    difficulty: 'medium',
     category: 'Maps & Borders',
     prompt: 'Which of these countries does NOT share a border with Germany?',
     options: ['Hungary', 'Czechia', 'Luxembourg', 'Denmark'],
@@ -650,6 +731,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mb-diomede',
+    difficulty: 'hard',
     category: 'Maps & Borders',
     prompt: 'Which islands, one Russian and one American, sit under 4 km apart?',
     options: ['Diomede Islands', 'Aleutian Islands', 'Pribilof Islands', 'Kuril Islands'],
@@ -657,6 +739,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mb-hormuz',
+    difficulty: 'medium',
     category: 'Maps & Borders',
     prompt: 'The Strait of Hormuz connects the Persian Gulf to which body of water?',
     options: ['Gulf of Oman', 'Red Sea', 'Gulf of Aden', 'Caspian Sea'],
@@ -664,6 +747,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mb-bass-strait',
+    difficulty: 'medium',
     category: 'Maps & Borders',
     prompt: 'Which strait separates Tasmania from mainland Australia?',
     options: ['Bass Strait', 'Torres Strait', 'Cook Strait', 'Strait of Malacca'],
@@ -671,6 +755,7 @@ export const QUESTIONS: Question[] = [
   },
   {
     id: 'mb-gobi',
+    difficulty: 'easy',
     category: 'Maps & Borders',
     prompt: 'The Gobi Desert spans China and which other country?',
     options: ['Mongolia', 'Kazakhstan', 'Russia', 'Afghanistan'],

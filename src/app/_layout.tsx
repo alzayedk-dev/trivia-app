@@ -1,10 +1,12 @@
 import { Nunito_600SemiBold, Nunito_800ExtraBold, Nunito_900Black, useFonts } from '@expo-google-fonts/nunito';
 import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { TopicBackground } from '../components/TopicBackground';
+import { topUpStock } from '../questionBank';
 import { ACTIVE_TOPIC, TOPIC_THEMES, TopicThemeContext } from '../theme';
 
 // Make the navigator itself see-through so the shared map background shows.
@@ -13,6 +15,11 @@ const NAV_THEME = { ...DefaultTheme, colors: { ...DefaultTheme.colors, backgroun
 export default function RootLayout() {
   const theme = TOPIC_THEMES[ACTIVE_TOPIC];
   const [fontsLoaded, fontError] = useFonts({ Nunito_600SemiBold, Nunito_800ExtraBold, Nunito_900Black });
+
+  // Start downloading questions as soon as the app opens, so Start is instant.
+  useEffect(() => {
+    void topUpStock();
+  }, []);
 
   return (
     <TopicThemeContext.Provider value={theme}>

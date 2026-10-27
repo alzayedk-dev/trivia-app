@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import type { Metadata } from 'expo-router/server';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   LayoutAnimation,
@@ -19,11 +19,12 @@ import { useNativeDriver } from '../animation';
 import { AppText } from '../components/AppText';
 import { Button } from '../components/Button';
 import { FinalCard } from '../components/FinalCard';
+import { LoadingScreen } from '../components/LoadingScreen';
 import { ChevronLeft, GlobeIcon } from '../components/Icons';
 import { PillButton } from '../components/PillButton';
 import { QuestionCard } from '../components/QuestionCard';
 import { ScoreCard } from '../components/ScoreCard';
-import { pickRound, POINTS_PER_CORRECT, QUESTIONS_PER_ROUND, shuffle, TIMED_OUT } from '../game';
+import { nextRound, POINTS_PER_CORRECT, QUESTIONS_PER_ROUND, RoundQuestion, shuffle, TIMED_OUT } from '../game';
 import { SHARE_MESSAGE } from '../share';
 import { useCompactLayout, useTopicTheme } from '../theme';
 
@@ -41,12 +42,47 @@ export function generateMetadata(): Metadata {
   return { title: 'Geo Trivia', description: SHARE_MESSAGE };
 }
 
+// Fetches each round (from the question bank, which may download) and shows it.
 export default function GameScreen() {
+  const [round, setRound] = useState<RoundQuestion[] | null>(null);
+  const [roundNumber, setRoundNumber] = useState(0);
+  const fade = useState(() => new Animated.Value(1))[0];
+  const loading = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    nextRound().then((questions) => active && setRound(questions));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const playAgain = () => {
+    if (loading.current) return;
+    loading.current = true;
+    Animated.timing(fade, { toValue: 0, duration: 200, useNativeDriver }).start(async () => {
+      try {
+        setRound(await nextRound());
+        setRoundNumber((n) => n + 1);
+      } finally {
+        loading.current = false;
+        Animated.timing(fade, { toValue: 1, duration: 250, useNativeDriver }).start();
+      }
+    });
+  };
+
+  if (!round) return <LoadingScreen />;
+  return (
+    <Animated.View style={[styles.fill, { opacity: fade }]}>
+      {/* A new key per round resets the picks, timers, 50/50 and scroll position. */}
+      <RoundView key={roundNumber} round={round} onPlayAgain={playAgain} />
+    </Animated.View>
+  );
+}
+
+function RoundView({ round, onPlayAgain }: { round: RoundQuestion[]; onPlayAgain: () => void }) {
   const theme = useTopicTheme();
   const compact = useCompactLayout();
-  // Questions seen this session, so "Play again" brings new ones.
-  const seenIds = useState(() => new Set<string>())[0];
-  const [round, setRound] = useState(() => pickRound(seenIds));
   const [picks, setPicks] = useState<(string | null)[]>(() => Array(QUESTIONS_PER_ROUND).fill(null));
   const [slide, setSlide] = useState(0);
   // The furthest card shown so far; a question's timer starts once it's been shown.
@@ -55,7 +91,6 @@ export default function GameScreen() {
   const [fiftyFifty, setFiftyFifty] = useState<{ index: number; removed: string[] } | null>(null);
   const [width, setWidth] = useState(0);
   const scrollRef = useRef<ScrollViewInstance>(null);
-  const fade = useState(() => new Animated.Value(1))[0];
 
   const answeredCount = picks.filter((p) => p !== null).length;
   // Only slides the player has reached exist, so you can swipe back to review
@@ -105,23 +140,11 @@ export default function GameScreen() {
     setFiftyFifty({ index: slide, removed });
   };
 
-  const playAgain = () => {
-    Animated.timing(fade, { toValue: 0, duration: 200, useNativeDriver }).start(() => {
-      setRound(pickRound(seenIds));
-      setPicks(Array(QUESTIONS_PER_ROUND).fill(null));
-      setSlide(0);
-      setFurthest(0);
-      setFiftyFifty(null);
-      scrollRef.current?.scrollTo({ x: 0, animated: false });
-      Animated.timing(fade, { toValue: 1, duration: 250, useNativeDriver }).start();
-    });
-  };
-
   // Leaves mid-game. If the game was opened directly, this replaces it with Home.
   const goHome = () => router.dismissTo('/');
 
   let footer = null;
-  if (onFinal) footer = <Button label="Play again" onPress={playAgain} />;
+  if (onFinal) footer = <Button label="Play again" onPress={onPlayAgain} />;
   else if (!answered && !fiftyFifty) footer = <Button label="50/50" variant="secondary" onPress={applyFiftyFifty} />;
   else if (answered)
     footer = (
@@ -153,7 +176,7 @@ export default function GameScreen() {
         </View>
       )}
 
-      <Animated.View style={[styles.viewport, { opacity: fade }]} onLayout={onLayout}>
+      <View style={styles.viewport} onLayout={onLayout}>
         {width > 0 && (
           <ScrollView
             ref={scrollRef}
@@ -165,7 +188,6 @@ export default function GameScreen() {
           >
             {round.slice(0, questionSlides).map((item, i) => (
               <ScrollView
-                // Remount cards on a new round so their animations start fresh.
                 key={item.question.id}
                 style={{ width }}
                 contentContainerStyle={styles.slide}
@@ -189,7 +211,7 @@ export default function GameScreen() {
             )}
           </ScrollView>
         )}
-      </Animated.View>
+      </View>
 
       {/* Space is kept for the button so the card doesn't jump when it appears. */}
       <View style={styles.footer}>{footer ?? <View style={styles.footerSpacer} />}</View>
@@ -198,6 +220,7 @@ export default function GameScreen() {
 }
 
 const styles = StyleSheet.create({
+  fill: { flex: 1 },
   safe: { flex: 1, width: '100%', maxWidth: 560, alignSelf: 'center' },
   header: { paddingHorizontal: 16, paddingTop: 8, gap: 10 },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
