@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import type { Metadata } from 'expo-router/server';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   LayoutAnimation,
@@ -24,6 +24,7 @@ import { ChevronLeft, GlobeIcon } from '../components/Icons';
 import { PillButton } from '../components/PillButton';
 import { QuestionCard } from '../components/QuestionCard';
 import { ScoreCard } from '../components/ScoreCard';
+import { EmptyScreen, ErrorScreen } from '../components/StatusScreen';
 import { nextRound, POINTS_PER_CORRECT, QUESTIONS_PER_ROUND, RoundQuestion, shuffle, TIMED_OUT } from '../game';
 import { SHARE_MESSAGE } from '../share';
 import { useCompactLayout, useTopicTheme } from '../theme';
@@ -43,35 +44,65 @@ export function generateMetadata(): Metadata {
 }
 
 // Fetches each round (from the question bank, which may download) and shows it.
+type Status = 'loading' | 'ready' | 'error' | 'empty';
+type LoadResult = { status: 'ready'; questions: RoundQuestion[] } | { status: 'error' | 'empty' };
+
+// Gets the next round and reports how it went: 'empty' if there weren't enough
+// questions, 'error' if something failed along the way.
+async function loadRound(): Promise<LoadResult> {
+  try {
+    const questions = await nextRound();
+    if (questions.length < QUESTIONS_PER_ROUND) return { status: 'empty' };
+    return { status: 'ready', questions };
+  } catch {
+    return { status: 'error' };
+  }
+}
+
 export default function GameScreen() {
-  const [round, setRound] = useState<RoundQuestion[] | null>(null);
+  const [status, setStatus] = useState<Status>('loading');
+  const [round, setRound] = useState<RoundQuestion[]>([]);
   const [roundNumber, setRoundNumber] = useState(0);
   const fade = useState(() => new Animated.Value(1))[0];
   const loading = useRef(false);
 
+  // Shows a fetched round, or the empty / error screen if it didn't work out.
+  const show = useCallback((result: LoadResult) => {
+    if (result.status === 'ready') {
+      setRound(result.questions);
+      setRoundNumber((n) => n + 1);
+    }
+    setStatus(result.status);
+  }, []);
+
   useEffect(() => {
     let active = true;
-    nextRound().then((questions) => active && setRound(questions));
+    loadRound().then((result) => active && show(result));
     return () => {
       active = false;
     };
-  }, []);
+  }, [show]);
+
+  const retry = () => {
+    setStatus('loading');
+    loadRound().then(show);
+  };
 
   const playAgain = () => {
     if (loading.current) return;
     loading.current = true;
     Animated.timing(fade, { toValue: 0, duration: 200, useNativeDriver }).start(async () => {
-      try {
-        setRound(await nextRound());
-        setRoundNumber((n) => n + 1);
-      } finally {
-        loading.current = false;
-        Animated.timing(fade, { toValue: 1, duration: 250, useNativeDriver }).start();
-      }
+      show(await loadRound());
+      loading.current = false;
+      Animated.timing(fade, { toValue: 1, duration: 250, useNativeDriver }).start();
     });
   };
 
-  if (!round) return <LoadingScreen />;
+  const goHome = () => router.dismissTo('/');
+
+  if (status === 'loading') return <LoadingScreen message="Finding your questions…" />;
+  if (status === 'error') return <ErrorScreen onRetry={retry} onHome={goHome} />;
+  if (status === 'empty') return <EmptyScreen onRetry={retry} onHome={goHome} />;
   return (
     <Animated.View style={[styles.fill, { opacity: fade }]}>
       {/* A new key per round resets the picks, timers, 50/50 and scroll position. */}

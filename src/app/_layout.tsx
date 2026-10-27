@@ -1,13 +1,29 @@
 import { Nunito_600SemiBold, Nunito_800ExtraBold, Nunito_900Black, useFonts } from '@expo-google-fonts/nunito';
-import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DefaultTheme, ErrorBoundaryProps, router, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LoadingScreen } from '../components/LoadingScreen';
+import { ErrorScreen } from '../components/StatusScreen';
 import { TopicBackground } from '../components/TopicBackground';
 import { topUpStock } from '../questionBank';
 import { ACTIVE_TOPIC, TOPIC_THEMES, TopicThemeContext } from '../theme';
+
+// Shown instead of a blank or broken screen if anything in the app crashes.
+export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
+  return (
+    <ErrorScreen
+      withBackground
+      message="Something unexpected happened on our side. Let's try that again."
+      onRetry={retry}
+      onHome={() => {
+        router.replace('/');
+        retry();
+      }}
+    />
+  );
+}
 
 // Make the navigator itself see-through so the shared map background shows.
 const NAV_THEME = { ...DefaultTheme, colors: { ...DefaultTheme.colors, background: 'transparent' } };

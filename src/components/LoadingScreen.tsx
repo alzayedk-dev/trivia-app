@@ -10,9 +10,9 @@ import { TopicBackground } from './TopicBackground';
 const GLOBE = 150;
 const ORBIT = 210;
 
-// Shown while the app's fonts load: a spinning globe with a plane circling it.
+// Shown while the app or a round is loading: a spinning globe with a plane circling it.
 // Uses the system font, since the app font isn't ready yet.
-export function LoadingScreen() {
+export function LoadingScreen({ message = 'Packing your passport…' }: { message?: string }) {
   const theme = useTopicTheme();
   const spin = useState(() => new Animated.Value(0))[0];
   const orbit = useState(() => new Animated.Value(0))[0];
@@ -49,7 +49,7 @@ export function LoadingScreen() {
         <GlobeIcon color={theme.accent} />
         <Text style={[styles.title, { color: theme.ink }]}>{theme.title}</Text>
       </View>
-      <Text style={[styles.caption, { color: theme.inkMuted }]}>Packing your passport…</Text>
+      <Text style={[styles.caption, { color: theme.inkMuted }]}>{message}</Text>
     </View>
   );
 }
