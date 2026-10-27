@@ -117,7 +117,19 @@ function RoundView({ round, onPlayAgain }: { round: RoundQuestion[]; onPlayAgain
     if (current > furthest) setFurthest(current);
   };
 
-  const goTo = (next: number) => scrollRef.current?.scrollTo({ x: next * width, animated: true });
+  // The swipe hint's pending steps, so they can be cancelled.
+  const nudgeTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const cancelNudge = () => {
+    nudgeTimers.current.forEach(clearTimeout);
+    nudgeTimers.current = [];
+  };
+  useEffect(() => cancelNudge, []);
+
+  const goTo = (next: number) => {
+    // Moving on mid-hint would otherwise be undone by the hint sliding back.
+    cancelNudge();
+    scrollRef.current?.scrollTo({ x: next * width, animated: true });
+  };
 
   // Called with TIMED_OUT when the question's timer runs out.
   const pick = (index: number, option: string) => {
@@ -127,9 +139,12 @@ function RoundView({ round, onPlayAgain }: { round: RoundQuestion[]; onPlayAgain
     setPicks((prev) => prev.map((p, i) => (i === index ? option : p)));
     buzz(option === round[index].answer);
     // On the first question, peek at the next card to show it can be swiped.
+    // Tapping Next or swiping cancels it.
     if (index === 0) {
-      setTimeout(() => scrollRef.current?.scrollTo({ x: NUDGE, animated: true }), 1600);
-      setTimeout(() => scrollRef.current?.scrollTo({ x: 0, animated: true }), 1950);
+      nudgeTimers.current = [
+        setTimeout(() => scrollRef.current?.scrollTo({ x: NUDGE, animated: true }), 1600),
+        setTimeout(() => scrollRef.current?.scrollTo({ x: 0, animated: true }), 1950),
+      ];
     }
   };
 
@@ -184,6 +199,7 @@ function RoundView({ round, onPlayAgain }: { round: RoundQuestion[]; onPlayAgain
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             onScroll={onScroll}
+            onScrollBeginDrag={cancelNudge}
             scrollEventThrottle={16}
           >
             {round.slice(0, questionSlides).map((item, i) => (
