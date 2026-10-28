@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
-import { colors, useTopicTheme } from '../theme';
+import { colors, useAppTheme } from '../theme';
 import { AppText } from './AppText';
 
 type Props = {
@@ -12,7 +12,7 @@ type Props = {
 // Small rounded button for the top bar (Home, Share). Still at least 44pt tall
 // so it's easy to hit.
 export function PillButton({ label, icon, onPress }: Props) {
-  const theme = useTopicTheme();
+  const theme = useAppTheme();
   return (
     <Pressable
       accessibilityRole="button"

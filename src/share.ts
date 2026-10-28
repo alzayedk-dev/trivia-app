@@ -2,4 +2,4 @@
 // from the home screen. Set to null to hide the Share button.
 export const SHARE_URL: string | null = 'https://alzayedk-dev-trivia-app.expo.app';
 
-export const SHARE_MESSAGE = 'Test your geography with Geo Trivia!';
+export const SHARE_MESSAGE = 'Can you beat my score? Play Trivia Night!';

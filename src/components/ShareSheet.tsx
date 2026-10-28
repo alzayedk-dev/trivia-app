@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Modal, Pressable, Share, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, useTopicTheme } from '../theme';
+import { colors, useAppTheme } from '../theme';
 import { AppText } from './AppText';
 import { Button } from './Button';
 
@@ -16,7 +16,7 @@ type Props = {
 
 // Bottom sheet with a QR code friends can scan, plus share and copy buttons.
 export function ShareSheet({ url, message, visible, onClose }: Props) {
-  const theme = useTopicTheme();
+  const theme = useAppTheme();
   const insets = useSafeAreaInsets();
   const [copied, setCopied] = useState(false);
 

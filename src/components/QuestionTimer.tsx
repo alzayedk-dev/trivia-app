@@ -1,22 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { useNativeDriver } from '../animation';
-import { SECONDS_PER_QUESTION } from '../game';
-import { colors, useTopicTheme } from '../theme';
+import { colors, useAppTheme } from '../theme';
 import { AppText } from './AppText';
 import { ClockIcon } from './Icons';
 
 const WARN_AT = 10;
 
 type Props = {
+  // Length of the countdown, or null for no timer.
+  seconds: number | null;
   // Counting down; false before the question is shown and once it's answered.
   running: boolean;
   onTimeout: () => void;
 };
 
-// Counts down from 30 while running and freezes where it is once stopped.
-export function useQuestionTimer({ running, onTimeout }: Props) {
-  const [secondsLeft, setSecondsLeft] = useState(SECONDS_PER_QUESTION);
+// Counts down while running and freezes where it is once stopped.
+export function useQuestionTimer({ seconds, running, onTimeout }: Props) {
+  const [secondsLeft, setSecondsLeft] = useState(seconds ?? 0);
   const progress = useState(() => new Animated.Value(1))[0];
   // Keep the latest callback without restarting the countdown when it changes.
   const timeoutRef = useRef(onTimeout);
@@ -24,14 +25,16 @@ export function useQuestionTimer({ running, onTimeout }: Props) {
     timeoutRef.current = onTimeout;
   }, [onTimeout]);
 
-  const ticking = running && secondsLeft > 0;
+  const ticking = seconds !== null && running && secondsLeft > 0;
 
   useEffect(() => {
     if (!ticking) {
       progress.stopAnimation();
-      if (secondsLeft === 0) progress.setValue(0);
+      if (seconds !== null && secondsLeft === 0) progress.setValue(0);
       return;
     }
+    // Resume the bar from the time left, as a share of the full countdown.
+    progress.setValue(secondsLeft / seconds);
     Animated.timing(progress, {
       toValue: 0,
       duration: secondsLeft * 1000,
@@ -43,13 +46,13 @@ export function useQuestionTimer({ running, onTimeout }: Props) {
       if (secondsLeft - 1 === 0) timeoutRef.current();
     }, 1000);
     return () => clearTimeout(tick);
-  }, [ticking, secondsLeft, progress]);
+  }, [ticking, seconds, secondsLeft, progress]);
 
   return { secondsLeft, progress };
 }
 
 export function TimerPill({ secondsLeft }: { secondsLeft: number }) {
-  const theme = useTopicTheme();
+  const theme = useAppTheme();
   const warn = secondsLeft <= WARN_AT;
   const color = warn ? colors.wrong : theme.accent;
   return (
@@ -66,7 +69,7 @@ export function TimerPill({ secondsLeft }: { secondsLeft: number }) {
 }
 
 export function TimerBar({ progress, secondsLeft }: { progress: Animated.Value; secondsLeft: number }) {
-  const theme = useTopicTheme();
+  const theme = useAppTheme();
   const warn = secondsLeft <= WARN_AT;
   return (
     <View style={[styles.track, { backgroundColor: theme.accentSoft }]}>

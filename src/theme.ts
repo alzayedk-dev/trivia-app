@@ -9,18 +9,18 @@ export const FONTS = {
   black: 'Nunito_900Black',
 };
 
-// Colours shared by every topic: a light, high-contrast palette.
+// A light, high-contrast palette used whatever the category.
 export const colors = {
   card: '#FFFFFF',
-  border: '#DCE6EA',
-  option: '#F6FAFB',
-  optionBorder: '#CFDDE3',
-  optionPressed: '#E8F1F4',
+  border: '#E1E2F2',
+  option: '#F7F7FD',
+  optionBorder: '#D5D6EE',
+  optionPressed: '#ECECFA',
   correct: '#2F9E5B',
   correctSoft: '#E3F5EA',
   wrong: '#D94F4F',
   wrongSoft: '#FBE7E7',
-  shadow: '#13405A',
+  shadow: '#24245A',
 };
 
 // Tag colours for each question's difficulty.
@@ -30,12 +30,7 @@ export const DIFFICULTY_COLORS = {
   hard: { text: colors.wrong, background: colors.wrongSoft },
 };
 
-// A topic is a whole quiz subject (Geography, later maybe History or Science).
-// Each topic gets its own text colour, accent, background art and answer animations.
-export type Topic = 'geography';
-
-export type TopicTheme = {
-  topic: Topic;
+export type AppTheme = {
   title: string;
   tagline: string;
   // Main text colour and a softer one for secondary text.
@@ -44,6 +39,9 @@ export type TopicTheme = {
   accent: string;
   accentText: string;
   accentSoft: string;
+  // Gold for the lightbulb glow, stars and other highlights.
+  highlight: string;
+  highlightSoft: string;
   background: {
     top: string;
     bottom: string;
@@ -51,31 +49,28 @@ export type TopicTheme = {
   };
 };
 
-export const TOPIC_THEMES: Record<Topic, TopicTheme> = {
-  geography: {
-    topic: 'geography',
-    title: 'Geo Trivia',
-    tagline: 'How well do you know the world?',
-    ink: '#13405A',
-    inkMuted: '#56778A',
-    accent: '#11788A',
-    accentText: '#FFFFFF',
-    accentSoft: '#DDF0F3',
-    background: {
-      top: '#E4F2F5',
-      bottom: '#F6F1E2',
-      line: '#6FA9B6',
-    },
+// Trivia Night: one game-night look for every category.
+export const THEME: AppTheme = {
+  title: 'Trivia Night',
+  tagline: 'Pick your categories. Beat the clock.',
+  ink: '#24245A',
+  inkMuted: '#5F6290',
+  accent: '#4B47C9',
+  accentText: '#FFFFFF',
+  accentSoft: '#E7E7FB',
+  highlight: '#F2AE2E',
+  highlightSoft: '#FFF3D6',
+  background: {
+    top: '#EEF0FB',
+    bottom: '#FBF5E9',
+    line: '#9DA2D8',
   },
 };
 
-// Only Geography exists for now; switching this changes the colours, art and animations.
-export const ACTIVE_TOPIC: Topic = 'geography';
+export const ThemeContext = createContext<AppTheme>(THEME);
 
-export const TopicThemeContext = createContext<TopicTheme>(TOPIC_THEMES[ACTIVE_TOPIC]);
-
-export function useTopicTheme() {
-  return useContext(TopicThemeContext);
+export function useAppTheme() {
+  return useContext(ThemeContext);
 }
 
 // Phones with less than this much usable height get tighter spacing, so the

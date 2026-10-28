@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "Geo Trivia",
+    "name": "Trivia Night",
     "slug": "trivia-app",
     "scheme": "geotrivia",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "backgroundColor": "#E4F2F5",
+    "backgroundColor": "#EEF0FB",
     "ios": {
       "supportsTablet": true
     },
@@ -23,11 +23,12 @@
     "web": {
       "favicon": "./assets/favicon.png",
       "output": "static",
-      "themeColor": "#11788A"
+      "themeColor": "#4B47C9"
     },
     "plugins": [
       "expo-font",
-      "expo-router"
+      "expo-router",
+      "expo-asset"
     ],
     "extra": {
       "router": {

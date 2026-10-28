@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, View, ViewStyle } from 'react-native';
-import { colors, useTopicTheme } from '../theme';
+import { colors, useAppTheme } from '../theme';
 import { AppText } from './AppText';
 import { ArrowRight } from './Icons';
 
@@ -9,21 +9,25 @@ type Props = {
   variant?: 'primary' | 'secondary';
   // Show a forward arrow after the label.
   arrow?: boolean;
+  disabled?: boolean;
   style?: ViewStyle;
 };
 
-export function Button({ label, onPress, variant = 'primary', arrow, style }: Props) {
-  const theme = useTopicTheme();
+export function Button({ label, onPress, variant = 'primary', arrow, disabled, style }: Props) {
+  const theme = useAppTheme();
   const primary = variant === 'primary';
   const textColor = primary ? theme.accentText : theme.accent;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
         styles.base,
         primary ? { backgroundColor: theme.accent } : [styles.secondary, { borderColor: theme.accent }],
+        disabled && styles.disabled,
         pressed && styles.pressed,
         style,
       ]}
@@ -47,6 +51,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   secondary: { backgroundColor: colors.card, borderWidth: 2 },
+  disabled: { opacity: 0.5 },
   content: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
   label: { fontSize: 19, textAlign: 'center' },

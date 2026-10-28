@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTopicTheme } from '../theme';
+import { useAppTheme } from '../theme';
 import { AppText } from './AppText';
 import { Button } from './Button';
-import { EmptyMapArt, OffCourseArt } from './StatusArt';
-import { TopicBackground } from './TopicBackground';
+import { BlownBulbArt, EmptyCardsArt } from './StatusArt';
+import { AppBackground } from './AppBackground';
 
 type Action = { label: string; onPress: () => void };
 
@@ -24,7 +24,7 @@ type Props = {
 export function StatusScreen({ art, title, message, primary, secondary, withBackground }: Props) {
   return (
     <View style={styles.root}>
-      {withBackground && <TopicBackground />}
+      {withBackground && <AppBackground />}
       <SafeAreaView style={styles.safe}>
         <View style={styles.body} accessibilityRole="alert">
           {art}
@@ -57,11 +57,11 @@ export function ErrorScreen({
   withBackground,
   message = 'Something went wrong while getting your questions. Check your connection and give it another go.',
 }: StateProps) {
-  const theme = useTopicTheme();
+  const theme = useAppTheme();
   return (
     <StatusScreen
-      art={<OffCourseArt color={theme.accent} />}
-      title="We've gone a little off course"
+      art={<BlownBulbArt color={theme.accent} />}
+      title="The lights flickered"
       message={message}
       primary={onRetry && { label: 'Try again', onPress: onRetry }}
       secondary={onHome && { label: 'Home', onPress: onHome }}
@@ -71,12 +71,12 @@ export function ErrorScreen({
 }
 
 export function EmptyScreen({ onRetry, onHome }: StateProps) {
-  const theme = useTopicTheme();
+  const theme = useAppTheme();
   return (
     <StatusScreen
-      art={<EmptyMapArt color={theme.accent} />}
+      art={<EmptyCardsArt color={theme.accent} />}
       title="No questions found"
-      message="We searched the map but couldn't find any new questions right now. Try again in a moment."
+      message="We couldn't find any new questions for your picks right now. Try again in a moment, or choose different categories."
       primary={onRetry && { label: 'Try again', onPress: onRetry }}
       secondary={onHome && { label: 'Home', onPress: onHome }}
     />
@@ -84,11 +84,11 @@ export function EmptyScreen({ onRetry, onHome }: StateProps) {
 }
 
 export function NotFoundScreen({ onHome }: StateProps) {
-  const theme = useTopicTheme();
+  const theme = useAppTheme();
   return (
     <StatusScreen
-      art={<EmptyMapArt color={theme.accent} />}
-      title="This page wandered off the map"
+      art={<EmptyCardsArt color={theme.accent} />}
+      title="This page doesn't exist"
       message="The link may be old or mistyped. Let's get you back to the start."
       primary={onHome && { label: 'Go home', onPress: onHome }}
     />

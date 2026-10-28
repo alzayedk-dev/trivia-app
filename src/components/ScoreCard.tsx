@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
 import { useNativeDriver } from '../animation';
-import { POINTS_PER_CORRECT } from '../game';
-import { colors, useCompactLayout, useTopicTheme } from '../theme';
+import { colors, useAppTheme, useCompactLayout } from '../theme';
 import { AppText } from './AppText';
 import { CardWatermark } from './CardWatermark';
 
@@ -13,8 +12,10 @@ type Props = {
   current: number;
 };
 
+// Score plus a segmented progress bar: one segment per question, green when
+// right, red when wrong, highlighted for the current one. Fits 5 to 15 questions.
 export function ScoreCard({ score, results, current }: Props) {
-  const theme = useTopicTheme();
+  const theme = useAppTheme();
   const compact = useCompactLayout();
   const pop = useState(() => new Animated.Value(1))[0];
   const previous = useRef(score);
@@ -29,9 +30,11 @@ export function ScoreCard({ score, results, current }: Props) {
     previous.current = score;
   }, [score, pop]);
 
+  const shown = Math.min(current + 1, results.length);
+
   return (
     <View style={[styles.card, compact && styles.cardCompact]}>
-      <CardWatermark size={120} offset={30} opacity={0.08} radius={20} />
+      <CardWatermark size={120} offset={30} opacity={0.06} radius={20} />
       <View>
         {/* Short phones fit the score card beside the Home button, so the label goes. */}
         {!compact && (
@@ -45,23 +48,23 @@ export function ScoreCard({ score, results, current }: Props) {
           </AppText>
         </Animated.View>
       </View>
-      <View style={[styles.dots, compact && styles.dotsCompact]}>
-        {results.map((result, i) => (
-          <View
-            key={i}
-            style={[
-              styles.dot,
-              compact && styles.dotCompact,
-              i === current && result === null && { borderColor: theme.accent, backgroundColor: theme.accentSoft },
-              result === true && styles.dotCorrect,
-              result === false && styles.dotWrong,
-            ]}
-          >
-            <AppText weight="black" muted={result === null} style={[styles.dotText, result !== null && styles.dotTextDone]}>
-              {result === true ? POINTS_PER_CORRECT : result === false ? 0 : i + 1}
-            </AppText>
-          </View>
-        ))}
+      <View style={styles.progress}>
+        <AppText muted style={[styles.count, compact && styles.countCompact]}>
+          {shown}/{results.length}
+        </AppText>
+        <View style={styles.segments} accessibilityLabel={`Question ${shown} of ${results.length}`}>
+          {results.map((result, i) => (
+            <View
+              key={i}
+              style={[
+                styles.segment,
+                result === null && { backgroundColor: i === current ? theme.accent : theme.accentSoft },
+                result === true && styles.segmentCorrect,
+                result === false && styles.segmentWrong,
+              ]}
+            />
+          ))}
+        </View>
       </View>
     </View>
   );
@@ -71,7 +74,7 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 16,
     backgroundColor: colors.card,
     borderRadius: 20,
     borderWidth: 1,
@@ -84,25 +87,15 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
-  cardCompact: { paddingVertical: 4, paddingHorizontal: 10, minHeight: 44 },
+  cardCompact: { paddingVertical: 4, paddingHorizontal: 12, minHeight: 44, gap: 10 },
   label: { fontSize: 12, letterSpacing: 1.5 },
-  score: { fontSize: 32, minWidth: 80 },
-  scoreCompact: { fontSize: 24, minWidth: 32 },
-  dots: { flexDirection: 'row', gap: 6 },
-  dotsCompact: { gap: 4 },
-  dotCompact: { width: 28, height: 28, borderRadius: 14 },
-  dot: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.option,
-  },
-  dotCorrect: { backgroundColor: colors.correct, borderColor: colors.correct },
-  dotWrong: { backgroundColor: colors.wrong, borderColor: colors.wrong },
-  dotText: { fontSize: 13 },
-  dotTextDone: { color: '#FFFFFF' },
+  score: { fontSize: 32, minWidth: 64 },
+  scoreCompact: { fontSize: 24, minWidth: 40 },
+  progress: { flex: 1, gap: 6 },
+  count: { fontSize: 13, alignSelf: 'flex-end' },
+  countCompact: { fontSize: 12 },
+  segments: { flexDirection: 'row', gap: 3 },
+  segment: { flex: 1, height: 8, borderRadius: 4 },
+  segmentCorrect: { backgroundColor: colors.correct },
+  segmentWrong: { backgroundColor: colors.wrong },
 });

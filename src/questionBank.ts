@@ -1,44 +1,51 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Difficulty, Question, QUESTIONS } from './data/questions';
+import { categoryName } from './data/categories';
+import { GENERAL_QUESTIONS } from './data/generalQuestions';
+import { Difficulty, GEOGRAPHY_QUESTIONS, Question } from './data/questions';
 import { shuffle } from './shuffle';
 
 // Questions come from the Open Trivia Database (opentdb.com, CC BY-SA 4.0).
-// They're downloaded in batches and kept on the device, so a round starts
-// instantly; the built-in questions take over when offline. Every question
-// this device has seen is remembered, so nothing repeats until the whole
-// supply has been used.
+// They're downloaded per category and difficulty and kept on the device, so
+// games start quickly; built-in questions take over when offline. Every
+// question this device has seen is remembered, so nothing repeats until the
+// supply for that category and difficulty has been used up.
 
 const API = 'https://opentdb.com';
-const GEOGRAPHY = 22;
-const BATCH_SIZE = 50;
+const BATCH_SIZE = 20;
 // The API allows one request per 5 seconds from each address.
 const REQUEST_GAP_MS = 5200;
 const REQUEST_TIMEOUT_MS = 8000;
-// Top up the stock when any difficulty falls below this many questions.
+// After a failed download, skip the network for a while and use built-in questions.
+const OFFLINE_BACKOFF_MS = 30000;
+// Keep at least this many questions in stock for each chosen category and difficulty.
 const LOW_STOCK = 4;
-// How long a round will wait for a download before using built-in questions.
-const ROUND_WAIT_MS = 6000;
+// How long one question will wait for a download before using a built-in one.
+const QUESTION_WAIT_MS = 12000;
 
 const STORAGE = {
-  seen: 'geo-trivia/seen-v1',
-  stock: 'geo-trivia/stock-v1',
-  token: 'geo-trivia/token-v1',
+  seen: 'trivia-night/seen-v1',
+  stock: 'trivia-night/stock-v1',
+  token: 'trivia-night/token-v1',
 };
+
+export type Slot = { categoryId: number; difficulty: Difficulty };
 
 type State = {
   // Ids of every question this device has been given.
   seen: Set<string>;
-  // Downloaded questions not yet played.
-  stock: Question[];
+  // Downloaded questions not yet played, by "category:difficulty".
+  stock: Record<string, Question[]>;
   // The API's session token, which stops it sending the same question twice.
   token: string | null;
 };
 
 let statePromise: Promise<State> | null = null;
-let topUp: Promise<void> | null = null;
+let queue: Promise<unknown> = Promise.resolve();
 let lastRequestAt = 0;
+let offlineUntil = 0;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const keyOf = ({ categoryId, difficulty }: Slot) => `${categoryId}:${difficulty}`;
 
 async function readJson<T>(key: string, fallback: T): Promise<T> {
   try {
@@ -52,7 +59,7 @@ async function readJson<T>(key: string, fallback: T): Promise<T> {
 function getState(): Promise<State> {
   statePromise ??= (async () => ({
     seen: new Set(await readJson<string[]>(STORAGE.seen, [])),
-    stock: await readJson<Question[]>(STORAGE.stock, []),
+    stock: await readJson<Record<string, Question[]>>(STORAGE.stock, {}),
     token: await readJson<string | null>(STORAGE.token, null),
   }))();
   return statePromise;
@@ -70,6 +77,13 @@ async function save(state: State) {
   }
 }
 
+// Runs network tasks one after another so requests never overlap.
+function enqueue<T>(task: () => Promise<T>): Promise<T> {
+  const run = queue.then(task, task);
+  queue = run.catch(() => {});
+  return run;
+}
+
 // Small stable hash so database questions get a short, repeatable id.
 function hash(text: string): string {
   let h = 5381;
@@ -78,6 +92,7 @@ function hash(text: string): string {
 }
 
 async function request(path: string): Promise<{ response_code: number; [key: string]: unknown }> {
+  if (Date.now() < offlineUntil) throw new Error('offline');
   const wait = lastRequestAt + REQUEST_GAP_MS - Date.now();
   if (wait > 0) await sleep(wait);
   lastRequestAt = Date.now();
@@ -86,138 +101,142 @@ async function request(path: string): Promise<{ response_code: number; [key: str
   try {
     const response = await fetch(`${API}${path}`, { signal: controller.signal });
     return await response.json();
+  } catch (error) {
+    offlineUntil = Date.now() + OFFLINE_BACKOFF_MS;
+    throw error;
   } finally {
     clearTimeout(timer);
   }
 }
 
-async function newToken(state: State) {
-  const result = await request('/api_token.php?command=request');
-  state.token = typeof result.token === 'string' ? result.token : null;
-}
+type ApiQuestion = { question: string; correct_answer: string; incorrect_answers: string[] };
 
-type ApiQuestion = {
-  difficulty: Difficulty;
-  question: string;
-  correct_answer: string;
-  incorrect_answers: string[];
-};
-
-function fromApi(item: ApiQuestion): Question {
+function fromApi(item: ApiQuestion, slot: Slot): Question {
   const prompt = decodeURIComponent(item.question);
   return {
-    id: `otdb:${hash(prompt)}`,
-    difficulty: decodeURIComponent(item.difficulty) as Difficulty,
-    category: 'Geography',
+    id: `otdb:${keyOf(slot)}:${hash(prompt)}`,
+    categoryId: slot.categoryId,
+    category: categoryName(slot.categoryId),
+    difficulty: slot.difficulty,
     prompt,
     options: [item.correct_answer, ...item.incorrect_answers].map((o) => decodeURIComponent(o)),
   };
 }
 
-// Downloads one batch into the stock. Response codes: 0 ok, 1 fewer questions
-// left than asked for, 3 token unknown/expired, 4 token has seen everything,
-// 5 too many requests.
-// The very first batch is fetched without a token so the first round isn't held
-// up waiting for one; the local "seen" list filters any later overlap.
-async function downloadBatch(state: State) {
+// Downloads one batch for a category and difficulty into the stock. Response
+// codes: 0 ok, 1 fewer questions left than asked for, 3 token unknown or
+// expired, 4 token has seen everything, 5 too many requests.
+async function download(state: State, slot: Slot) {
+  const key = keyOf(slot);
   let amount = BATCH_SIZE;
-  for (let attempt = 0; attempt < 4; attempt++) {
+  let restarted = false;
+  for (let attempt = 0; attempt < 5; attempt++) {
     const token = state.token ? `&token=${state.token}` : '';
     const result = await request(
-      `/api.php?amount=${amount}&category=${GEOGRAPHY}&type=multiple&encode=url3986${token}`,
+      `/api.php?amount=${amount}&category=${slot.categoryId}&difficulty=${slot.difficulty}&type=multiple&encode=url3986${token}`,
     );
     if (result.response_code === 0) {
-      const known = new Set(state.stock.map((q) => q.id));
-      for (const question of (result.results as ApiQuestion[]).map(fromApi)) {
+      const stock = (state.stock[key] ??= []);
+      const known = new Set(stock.map((q) => q.id));
+      for (const question of (result.results as ApiQuestion[]).map((item) => fromApi(item, slot))) {
         if (!state.seen.has(question.id) && !known.has(question.id)) {
-          state.stock.push(question);
+          stock.push(question);
           known.add(question.id);
         }
       }
       return;
     }
-    if (result.response_code === 1 && amount > 10) {
-      amount = 10;
-    } else if (result.response_code === 1 || result.response_code === 4) {
-      // This device has seen the whole database: start over from the beginning.
+    if (result.response_code === 1 && amount > 5) {
+      amount = 5;
+    } else if ((result.response_code === 1 || result.response_code === 4) && state.token && !restarted) {
+      // This device has seen everything left for this choice: start it over.
       await request(`/api_token.php?command=reset&token=${state.token}`);
-      for (const id of state.seen) if (id.startsWith('otdb:')) state.seen.delete(id);
+      for (const id of state.seen) if (id.startsWith(`otdb:${key}:`)) state.seen.delete(id);
+      restarted = true;
       amount = BATCH_SIZE;
     } else if (result.response_code === 3) {
-      await newToken(state);
+      const fresh = await request('/api_token.php?command=request');
+      state.token = typeof fresh.token === 'string' ? fresh.token : null;
     } else if (result.response_code !== 5) {
       return;
     }
   }
 }
 
-function lowOnStock(state: State) {
-  return (['easy', 'medium', 'hard'] as const).some(
-    (d) => state.stock.filter((q) => q.difficulty === d).length < LOW_STOCK,
-  );
-}
-
-// Starts a background download if the stock is running low. Safe to call often.
-// Resolves as soon as the new questions are in stock.
-export function topUpStock(): Promise<void> {
-  topUp ??= (async () => {
+// Makes sure there are at least `want` questions in stock for a choice.
+function fill(slot: Slot, want: number): Promise<void> {
+  return enqueue(async () => {
+    const state = await getState();
+    if ((state.stock[keyOf(slot)]?.length ?? 0) >= want) return;
     try {
-      const state = await getState();
-      if (lowOnStock(state)) {
-        await downloadBatch(state);
-        await save(state);
+      await download(state, slot);
+      // The very first download goes without a token so the first game isn't
+      // held up waiting for one; get it afterwards.
+      if (!state.token) {
+        const fresh = await request('/api_token.php?command=request');
+        state.token = typeof fresh.token === 'string' ? fresh.token : null;
       }
-      if (!state.token) void fetchToken(state);
     } catch {
-      // Offline or the service is down: the built-in questions cover it.
+      // Offline or the service is down: built-in questions cover it.
     } finally {
-      topUp = null;
+      await save(state);
     }
-  })();
-  return topUp;
+  });
 }
 
-async function fetchToken(state: State) {
-  try {
-    await newToken(state);
-    await save(state);
-  } catch {
-    // Try again on the next top-up.
+// Tops up the stock for each chosen category in the background, e.g. while the
+// player is still on the setup screen. Safe to call often.
+export function warmUp(slots: Slot[]) {
+  const unique = [...new Map(slots.map((s) => [keyOf(s), s])).values()];
+  for (const slot of unique) void fill(slot, LOW_STOCK);
+}
+
+function backupFor(slot: Slot, state: State, used: Set<string>): Question {
+  const bank = slot.categoryId === 22 ? GEOGRAPHY_QUESTIONS : GENERAL_QUESTIONS;
+  let unseen = shuffle(bank).filter((q) => !state.seen.has(q.id) && !used.has(q.id));
+  if (unseen.length === 0) {
+    for (const q of bank) state.seen.delete(q.id);
+    unseen = shuffle(bank).filter((q) => !used.has(q.id));
   }
+  return unseen.find((q) => q.difficulty === slot.difficulty) ?? unseen[0];
 }
 
-function takeFrom(pool: Question[], difficulty: Difficulty, exclude: Set<string>): Question | undefined {
-  return pool.find((q) => q.difficulty === difficulty && !exclude.has(q.id));
+function takeFromStock(state: State, slot: Slot, used: Set<string>): Question | undefined {
+  const stock = state.stock[keyOf(slot)] ?? [];
+  const index = stock.findIndex((q) => !used.has(q.id) && !state.seen.has(q.id));
+  if (index < 0) return undefined;
+  return stock.splice(index, 1)[0];
 }
 
-// Picks one question per slot, preferring downloaded ones, then unseen built-in
-// ones of the same difficulty, then any unseen built-in one. If even those are
-// used up, the built-in questions start over.
-export async function nextQuestions(plan: Difficulty[]): Promise<Question[]> {
+// Hands the game one question per slot, in order, as each becomes available:
+// from stock, else after a download, else from another difficulty of the same
+// category, else from the built-in backup. Stops early if `cancelled()`.
+export async function streamQuestions(
+  slots: Slot[],
+  onQuestion: (question: Question) => void,
+  cancelled: () => boolean,
+): Promise<void> {
   const state = await getState();
-  const missing = plan.some((d) => !state.stock.some((q) => q.difficulty === d));
-  if (missing) await Promise.race([topUpStock(), sleep(ROUND_WAIT_MS)]);
-
-  const picked: Question[] = [];
   const used = new Set<string>();
-  const shuffledBuiltIns = shuffle(QUESTIONS);
-  for (const difficulty of plan) {
-    let question = takeFrom(state.stock, difficulty, used);
-    if (question) {
-      state.stock = state.stock.filter((q) => q !== question);
-    } else {
-      const unseen = shuffledBuiltIns.filter((q) => !state.seen.has(q.id));
-      if (unseen.length === 0) for (const q of QUESTIONS) state.seen.delete(q.id);
-      const pool = unseen.length ? unseen : shuffledBuiltIns;
-      question = takeFrom(pool, difficulty, used) ?? pool.find((q) => !used.has(q.id));
+  for (const slot of slots) {
+    if (cancelled()) return;
+    let question = takeFromStock(state, slot, used);
+    if (!question && Date.now() >= offlineUntil) {
+      await Promise.race([fill(slot, 1), sleep(QUESTION_WAIT_MS)]);
+      question = takeFromStock(state, slot, used);
     }
-    if (!question) continue;
-    picked.push(question);
+    if (!question) {
+      const others = (['easy', 'medium', 'hard'] as const).filter((d) => d !== slot.difficulty);
+      for (const difficulty of others) {
+        question ??= takeFromStock(state, { categoryId: slot.categoryId, difficulty }, used);
+      }
+    }
+    question ??= backupFor(slot, state, used);
     used.add(question.id);
     state.seen.add(question.id);
+    if (cancelled()) return;
+    onQuestion(question);
   }
-
   await save(state);
-  void topUpStock();
-  return picked;
+  warmUp(slots);
 }

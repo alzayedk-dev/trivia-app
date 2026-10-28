@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Animated, Pressable, StyleSheet } from 'react-native';
 import { useNativeDriver } from '../animation';
-import { colors, useCompactLayout, useLargeLayout, useTopicTheme } from '../theme';
+import { colors, useCompactLayout, useLargeLayout, useAppTheme } from '../theme';
 import { AppText } from './AppText';
 
 // idle: not answered yet. correct: picked and right. wrong: picked and wrong.
@@ -17,7 +17,7 @@ type Props = {
 };
 
 export function AnswerButton({ label, letter, state, onPress }: Props) {
-  const theme = useTopicTheme();
+  const theme = useAppTheme();
   const compact = useCompactLayout();
   const large = useLargeLayout();
   const scale = useState(() => new Animated.Value(1))[0];

@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { Difficulty } from '../data/questions';
-import { POINTS_PER_CORRECT, QUESTIONS_PER_ROUND, RoundQuestion, TIMED_OUT } from '../game';
-import { colors, DIFFICULTY_COLORS, useCompactLayout, useLargeLayout, useTopicTheme } from '../theme';
+import { POINTS_PER_CORRECT, RoundQuestion, TIMED_OUT } from '../game';
+import { colors, DIFFICULTY_COLORS, useAppTheme, useCompactLayout, useLargeLayout } from '../theme';
 import { AnswerButton, AnswerState } from './AnswerButton';
 import { AnswerFeedback } from './AnswerFeedback';
 import { AppText } from './AppText';
@@ -15,8 +15,11 @@ const DIFFICULTY_LABELS: Record<Difficulty, string> = { easy: 'Easy', medium: 'M
 type Props = {
   item: RoundQuestion;
   index: number;
+  total: number;
   picked: string | null;
   onPick: (option: string) => void;
+  // Seconds to answer, or null for no timer.
+  timerSeconds: number | null;
   // The timer runs once the question has been shown and until it's answered.
   started: boolean;
   onTimeout: () => void;
@@ -26,14 +29,18 @@ type Props = {
 
 // Question and feedback sit at the top; the answers sit at the bottom of the
 // card, where a thumb naturally rests.
-export function QuestionCard({ item, index, picked, onPick, started, onTimeout, removed }: Props) {
-  const theme = useTopicTheme();
+export function QuestionCard({ item, index, total, picked, onPick, timerSeconds, started, onTimeout, removed }: Props) {
+  const theme = useAppTheme();
   const compact = useCompactLayout();
   const large = useLargeLayout();
   const answered = picked !== null;
   const correct = picked === item.answer;
   const timedOut = picked === TIMED_OUT;
-  const { secondsLeft, progress } = useQuestionTimer({ running: started && !answered, onTimeout });
+  const { secondsLeft, progress } = useQuestionTimer({
+    seconds: timerSeconds,
+    running: started && !answered,
+    onTimeout,
+  });
 
   const stateFor = (option: string): AnswerState => {
     if (!answered) return 'idle';
@@ -54,9 +61,9 @@ export function QuestionCard({ item, index, picked, onPick, started, onTimeout, 
 
       <View style={styles.meta}>
         <AppText weight="black" style={[styles.number, { backgroundColor: theme.accent, color: theme.accentText }]}>
-          {index + 1}/{QUESTIONS_PER_ROUND}
+          {index + 1}/{total}
         </AppText>
-        <TimerPill secondsLeft={secondsLeft} />
+        {timerSeconds !== null && <TimerPill secondsLeft={secondsLeft} />}
         <AppText
           style={[
             styles.difficulty,
@@ -69,8 +76,11 @@ export function QuestionCard({ item, index, picked, onPick, started, onTimeout, 
           {DIFFICULTY_LABELS[item.question.difficulty]}
         </AppText>
       </View>
-      <TimerBar progress={progress} secondsLeft={secondsLeft} />
+      {timerSeconds !== null && <TimerBar progress={progress} secondsLeft={secondsLeft} />}
 
+      <AppText muted style={styles.category}>
+        {item.question.category.toUpperCase()}
+      </AppText>
       <AppText weight="black" style={[styles.prompt, compact && styles.promptCompact, large && styles.promptLarge]}>
         {item.question.prompt}
       </AppText>
@@ -151,6 +161,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
   },
+  category: { fontSize: 12, letterSpacing: 1.2, marginBottom: -8 },
   prompt: { fontSize: 23, lineHeight: 30 },
   promptCompact: { fontSize: 20, lineHeight: 26 },
   promptLarge: { fontSize: 30, lineHeight: 38 },

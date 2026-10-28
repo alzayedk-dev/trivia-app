@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import type { Metadata } from 'expo-router/server';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   LayoutAnimation,
@@ -19,17 +19,18 @@ import { useNativeDriver } from '../animation';
 import { AppText } from '../components/AppText';
 import { Button } from '../components/Button';
 import { FinalCard } from '../components/FinalCard';
+import { BulbIcon, ChevronLeft } from '../components/Icons';
 import { LoadingScreen } from '../components/LoadingScreen';
-import { ChevronLeft, GlobeIcon } from '../components/Icons';
 import { PillButton } from '../components/PillButton';
 import { QuestionCard } from '../components/QuestionCard';
 import { ScoreCard } from '../components/ScoreCard';
 import { EmptyScreen, ErrorScreen } from '../components/StatusScreen';
-import { nextRound, POINTS_PER_CORRECT, QUESTIONS_PER_ROUND, RoundQuestion, shuffle, TIMED_OUT } from '../game';
+import { buildPlan, POINTS_PER_CORRECT, RoundQuestion, shuffle, TIMED_OUT, toRoundQuestion } from '../game';
+import { streamQuestions } from '../questionBank';
+import { GameSettings, useGameSettings } from '../settings';
 import { SHARE_MESSAGE } from '../share';
-import { useCompactLayout, useTopicTheme } from '../theme';
+import { useAppTheme, useCompactLayout } from '../theme';
 
-const FINAL_SLIDE = QUESTIONS_PER_ROUND;
 const NUDGE = 40;
 
 function buzz(correct: boolean) {
@@ -40,99 +41,107 @@ function buzz(correct: boolean) {
 }
 
 export function generateMetadata(): Metadata {
-  return { title: 'Geo Trivia', description: SHARE_MESSAGE };
+  return { title: 'Trivia Night', description: SHARE_MESSAGE };
 }
 
-// Fetches each round (from the question bank, which may download) and shows it.
-type Status = 'loading' | 'ready' | 'error' | 'empty';
-type LoadResult = { status: 'ready'; questions: RoundQuestion[] } | { status: 'error' | 'empty' };
-
-// Gets the next round and reports how it went: 'empty' if there weren't enough
-// questions, 'error' if something failed along the way.
-async function loadRound(): Promise<LoadResult> {
-  try {
-    const questions = await nextRound();
-    if (questions.length < QUESTIONS_PER_ROUND) return { status: 'empty' };
-    return { status: 'ready', questions };
-  } catch {
-    return { status: 'error' };
-  }
-}
+const goHome = () => router.dismissTo('/');
 
 export default function GameScreen() {
-  const [status, setStatus] = useState<Status>('loading');
-  const [round, setRound] = useState<RoundQuestion[]>([]);
-  const [roundNumber, setRoundNumber] = useState(0);
+  const { settings } = useGameSettings();
+  const [gameNumber, setGameNumber] = useState(0);
   const fade = useState(() => new Animated.Value(1))[0];
-  const loading = useRef(false);
-
-  // Shows a fetched round, or the empty / error screen if it didn't work out.
-  const show = useCallback((result: LoadResult) => {
-    if (result.status === 'ready') {
-      setRound(result.questions);
-      setRoundNumber((n) => n + 1);
-    }
-    setStatus(result.status);
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    loadRound().then((result) => active && show(result));
-    return () => {
-      active = false;
-    };
-  }, [show]);
-
-  const retry = () => {
-    setStatus('loading');
-    loadRound().then(show);
-  };
 
   const playAgain = () => {
-    if (loading.current) return;
-    loading.current = true;
-    Animated.timing(fade, { toValue: 0, duration: 200, useNativeDriver }).start(async () => {
-      show(await loadRound());
-      loading.current = false;
+    Animated.timing(fade, { toValue: 0, duration: 200, useNativeDriver }).start(() => {
+      setGameNumber((n) => n + 1);
       Animated.timing(fade, { toValue: 1, duration: 250, useNativeDriver }).start();
     });
   };
 
-  const goHome = () => router.dismissTo('/');
-
-  if (status === 'loading') return <LoadingScreen message="Finding your questions…" />;
-  if (status === 'error') return <ErrorScreen onRetry={retry} onHome={goHome} />;
-  if (status === 'empty') return <EmptyScreen onRetry={retry} onHome={goHome} />;
   return (
     <Animated.View style={[styles.fill, { opacity: fade }]}>
-      {/* A new key per round resets the picks, timers, 50/50 and scroll position. */}
-      <RoundView key={roundNumber} round={round} onPlayAgain={playAgain} />
+      {/* A new key per game resets everything and fetches new questions. */}
+      <Game key={gameNumber} settings={settings} onPlayAgain={playAgain} />
     </Animated.View>
   );
 }
 
-function RoundView({ round, onPlayAgain }: { round: RoundQuestion[]; onPlayAgain: () => void }) {
-  const theme = useTopicTheme();
+// One game: streams its questions in (from stock, downloads or the built-in
+// backup) and shows them as they arrive, so play can start before all are ready.
+function Game({ settings, onPlayAgain }: { settings: GameSettings; onPlayAgain: () => void }) {
+  const [plan] = useState(() => buildPlan(settings));
+  const [questions, setQuestions] = useState<RoundQuestion[]>([]);
+  const [done, setDone] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    streamQuestions(
+      plan,
+      (question) => setQuestions((prev) => [...prev, toRoundQuestion(question)]),
+      () => cancelled,
+    )
+      .then(() => !cancelled && setDone(true))
+      .catch(() => !cancelled && setFailed(true));
+    return () => {
+      cancelled = true;
+    };
+  }, [plan, attempt]);
+
+  const retry = () => {
+    setQuestions([]);
+    setDone(false);
+    setFailed(false);
+    setAttempt((n) => n + 1);
+  };
+
+  if (questions.length === 0) {
+    if (failed) return <ErrorScreen onRetry={retry} onHome={goHome} />;
+    if (done) return <EmptyScreen onRetry={retry} onHome={goHome} />;
+    return <LoadingScreen message="Finding your questions…" />;
+  }
+  return (
+    <RoundView
+      questions={questions}
+      total={plan.length}
+      timerSeconds={settings.timerSeconds}
+      onPlayAgain={onPlayAgain}
+    />
+  );
+}
+
+type RoundProps = {
+  // The questions loaded so far; grows until it reaches `total`.
+  questions: RoundQuestion[];
+  total: number;
+  timerSeconds: number | null;
+  onPlayAgain: () => void;
+};
+
+function RoundView({ questions, total, timerSeconds, onPlayAgain }: RoundProps) {
+  const theme = useAppTheme();
   const compact = useCompactLayout();
-  const [picks, setPicks] = useState<(string | null)[]>(() => Array(QUESTIONS_PER_ROUND).fill(null));
+  const [picks, setPicks] = useState<(string | null)[]>(() => Array(total).fill(null));
   const [slide, setSlide] = useState(0);
   // The furthest card shown so far; a question's timer starts once it's been shown.
   const [furthest, setFurthest] = useState(0);
-  // The one-per-round 50/50: which question it was used on and the answers it removed.
+  // The one-per-game 50/50: which question it was used on and the answers it removed.
   const [fiftyFifty, setFiftyFifty] = useState<{ index: number; removed: string[] } | null>(null);
   const [width, setWidth] = useState(0);
   const scrollRef = useRef<ScrollViewInstance>(null);
 
   const answeredCount = picks.filter((p) => p !== null).length;
-  // Only slides the player has reached exist, so you can swipe back to review
-  // but never past a question you haven't answered.
-  const questionSlides = Math.min(answeredCount + 1, QUESTIONS_PER_ROUND);
-  const showFinal = answeredCount === QUESTIONS_PER_ROUND;
+  // Only slides the player has reached (and that have loaded) exist, so you can
+  // swipe back to review but never past a question you haven't answered.
+  const questionSlides = Math.min(answeredCount + 1, questions.length);
+  const showFinal = answeredCount === total;
+  const nextReady = slide + 1 < questions.length || slide + 1 === total;
 
-  const results = round.map((q, i) => (picks[i] === null ? null : picks[i] === q.answer));
+  const results = picks.map((p, i) => (p === null ? null : p === questions[i]?.answer));
   const correctCount = results.filter((r) => r === true).length;
   const score = correctCount * POINTS_PER_CORRECT;
-  const onFinal = slide === FINAL_SLIDE;
+  const onFinal = slide === total;
   const answered = !onFinal && picks[slide] !== null;
 
   const onLayout = (e: LayoutChangeEvent) => {
@@ -168,7 +177,7 @@ function RoundView({ round, onPlayAgain }: { round: RoundQuestion[]; onPlayAgain
     // Animates the unused answers sliding away as the feedback appears.
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setPicks((prev) => prev.map((p, i) => (i === index ? option : p)));
-    buzz(option === round[index].answer);
+    buzz(option === questions[index].answer);
     // On the first question, peek at the next card to show it can be swiped.
     // Tapping Next or swiping cancels it.
     if (index === 0) {
@@ -180,22 +189,18 @@ function RoundView({ round, onPlayAgain }: { round: RoundQuestion[]; onPlayAgain
   };
 
   const applyFiftyFifty = () => {
-    const { options, answer } = round[slide];
+    const { options, answer } = questions[slide];
     const removed = shuffle(options.filter((o) => o !== answer)).slice(0, 2);
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setFiftyFifty({ index: slide, removed });
   };
 
-  // Leaves mid-game. If the game was opened directly, this replaces it with Home.
-  const goHome = () => router.dismissTo('/');
-
   let footer = null;
   if (onFinal) footer = <Button label="Play again" onPress={onPlayAgain} />;
   else if (!answered && !fiftyFifty) footer = <Button label="50/50" variant="secondary" onPress={applyFiftyFifty} />;
+  else if (answered && !nextReady) footer = <Button label="Loading next question…" variant="secondary" disabled onPress={() => {}} />;
   else if (answered)
-    footer = (
-      <Button label={slide === QUESTIONS_PER_ROUND - 1 ? 'See score' : 'Next'} arrow onPress={() => goTo(slide + 1)} />
-    );
+    footer = <Button label={slide === total - 1 ? 'See score' : 'Next'} arrow onPress={() => goTo(slide + 1)} />;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -212,7 +217,7 @@ function RoundView({ round, onPlayAgain }: { round: RoundQuestion[]; onPlayAgain
           <View style={styles.topBar}>
             <PillButton label="Home" icon={<ChevronLeft color={theme.accent} />} onPress={goHome} />
             <View style={styles.brand}>
-              <GlobeIcon color={theme.accent} size={22} />
+              <BulbIcon color={theme.accent} size={24} />
               <AppText weight="black" style={styles.brandText}>
                 {theme.title}
               </AppText>
@@ -233,7 +238,7 @@ function RoundView({ round, onPlayAgain }: { round: RoundQuestion[]; onPlayAgain
             onScrollBeginDrag={cancelNudge}
             scrollEventThrottle={16}
           >
-            {round.slice(0, questionSlides).map((item, i) => (
+            {questions.slice(0, questionSlides).map((item, i) => (
               <ScrollView
                 key={item.question.id}
                 style={{ width }}
@@ -243,8 +248,10 @@ function RoundView({ round, onPlayAgain }: { round: RoundQuestion[]; onPlayAgain
                 <QuestionCard
                   item={item}
                   index={i}
+                  total={total}
                   picked={picks[i]}
                   onPick={(option) => pick(i, option)}
+                  timerSeconds={timerSeconds}
                   started={i <= furthest}
                   onTimeout={() => pick(i, TIMED_OUT)}
                   removed={fiftyFifty?.index === i ? fiftyFifty.removed : []}
@@ -253,7 +260,7 @@ function RoundView({ round, onPlayAgain }: { round: RoundQuestion[]; onPlayAgain
             ))}
             {showFinal && (
               <View style={[styles.slide, { width }]}>
-                <FinalCard score={score} correctCount={correctCount} />
+                <FinalCard score={score} correctCount={correctCount} total={total} />
               </View>
             )}
           </ScrollView>

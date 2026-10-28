@@ -1,5 +1,5 @@
 import Svg, { Path } from 'react-native-svg';
-import { GlobeArt } from './GlobeArt';
+import { BulbArt } from './TriviaArt';
 
 type Props = { color: string; size?: number };
 
@@ -57,22 +57,11 @@ export function ShareIcon({ color, size = 18 }: Props) {
   );
 }
 
-// A plane seen from above, nose pointing right.
-export function PlaneIcon({ color, size = 28 }: Props) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Path
-        d="M22 12 C22 11 21 10.5 20 10.5 L15 10.5 L10 3 L8 3 L10.5 10.5 L5 10.5 L3.5 8 L2 8 L3 12 L2 16 L3.5 16 L5 13.5 L10.5 13.5 L8 21 L10 21 L15 13.5 L20 13.5 C21 13.5 22 13 22 12 Z"
-        fill={color}
-      />
-    </Svg>
-  );
-}
-
-export function GlobeIcon({ color, size = 26 }: Props) {
+// The Trivia Night logo: a small lightbulb with a question mark.
+export function BulbIcon({ color, size = 26 }: Props) {
   return (
     <Svg width={size} height={size} viewBox="0 0 200 200">
-      <GlobeArt color={color} route={false} strokeScale={2.2} />
+      <BulbArt color={color} strokeScale={1.8} />
     </Svg>
   );
 }

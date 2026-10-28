@@ -1,34 +1,37 @@
 import { StyleSheet, View } from 'react-native';
 import Svg from 'react-native-svg';
-import { POINTS_PER_CORRECT, QUESTIONS_PER_ROUND } from '../game';
-import { colors, useTopicTheme } from '../theme';
+import { POINTS_PER_CORRECT } from '../game';
+import { colors, useAppTheme } from '../theme';
 import { AppText } from './AppText';
 import { CardWatermark } from './CardWatermark';
-import { GlobeArt } from './GlobeArt';
+import { BulbArt, RaysArt } from './TriviaArt';
 
 type Props = {
   score: number;
   correctCount: number;
+  total: number;
 };
 
-function verdict(correctCount: number): string {
-  if (correctCount === QUESTIONS_PER_ROUND) return 'Perfect round!';
-  if (correctCount >= 4) return 'World traveller!';
-  if (correctCount >= 3) return 'Solid navigating!';
-  if (correctCount >= 1) return 'Keep exploring!';
-  return 'Time to pack a map!';
+function verdict(correctCount: number, total: number): string {
+  const share = correctCount / total;
+  if (share === 1) return 'Perfect game!';
+  if (share >= 0.8) return 'Trivia champion!';
+  if (share >= 0.6) return 'Sharp thinking!';
+  if (share >= 0.3) return 'Good effort!';
+  return 'Better luck next round!';
 }
 
-export function FinalCard({ score, correctCount }: Props) {
-  const theme = useTopicTheme();
+export function FinalCard({ score, correctCount, total }: Props) {
+  const theme = useAppTheme();
   return (
     <View style={styles.card}>
       <CardWatermark size={320} offset={60} />
-      <Svg width={96} height={96} viewBox="0 0 200 200">
-        <GlobeArt color={theme.accent} fill={theme.accentSoft} route={false} />
+      <Svg width={110} height={110} viewBox="0 0 200 200">
+        <RaysArt color={theme.highlight} />
+        <BulbArt color={theme.accent} fill={theme.highlight} markColor="#FFFFFF" />
       </Svg>
       <AppText weight="black" style={styles.title}>
-        {verdict(correctCount)}
+        {verdict(correctCount, total)}
       </AppText>
       <AppText muted style={styles.label}>
         TOTAL SCORE
@@ -37,10 +40,10 @@ export function FinalCard({ score, correctCount }: Props) {
         {score}
       </AppText>
       <AppText weight="regular" muted style={styles.detail}>
-        {correctCount} of {QUESTIONS_PER_ROUND} correct · out of {QUESTIONS_PER_ROUND * POINTS_PER_CORRECT} points
+        {correctCount} of {total} correct · out of {total * POINTS_PER_CORRECT} points
       </AppText>
       <AppText weight="regular" muted style={styles.detail}>
-        Next round: 5 new questions.
+        Next game: new questions with the same settings.
       </AppText>
     </View>
   );

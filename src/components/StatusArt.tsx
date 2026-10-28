@@ -1,59 +1,52 @@
-import Svg, { Circle, G, Path } from 'react-native-svg';
+import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 import { colors } from '../theme';
-import { GlobeArt } from './GlobeArt';
+import { BulbArt } from './TriviaArt';
 
 type Props = { color: string; size?: number };
 
-// Something went wrong: a plane that has strayed off its dotted route around
-// the globe, with a small warning badge.
-export function OffCourseArt({ color, size = 180 }: Props) {
+// Something went wrong: a blown lightbulb with a crack and a warning badge.
+export function BlownBulbArt({ color, size = 180 }: Props) {
   return (
     <Svg width={size} height={size} viewBox="0 0 200 200">
-      <G transform="translate(30 30) scale(0.7)">
-        <GlobeArt color={color} fill={colors.card} route={false} />
-      </G>
-      {/* The planned route, then the detour. */}
-      <Path d="M 18 150 Q 40 186 100 182" stroke={color} strokeWidth={3} strokeDasharray="2 8" strokeLinecap="round" fill="none" />
-      <Path d="M 100 182 Q 150 178 168 120" stroke={colors.wrong} strokeWidth={3} strokeDasharray="2 8" strokeLinecap="round" fill="none" />
-      {/* Plane heading the wrong way, nose up and to the right. */}
-      <G transform="translate(156 92) rotate(-60) scale(1.5)">
+      <G transform="translate(20 14) scale(0.8)">
+        <BulbArt color={color} fill="#F1F1F7" mark={false} />
+        {/* Crack across the glass. */}
         <Path
-          d="M10 0 C10 -0.7 9.4 -1 8.8 -1 L5.5 -1 L2.4 -6 L1 -6 L2.6 -1 L-1.4 -1 L-2.4 -2.6 L-3.4 -2.6 L-2.8 0 L-3.4 2.6 L-2.4 2.6 L-1.4 1 L2.6 1 L1 6 L2.4 6 L5.5 1 L8.8 1 C9.4 1 10 0.7 10 0 Z"
-          fill={colors.wrong}
+          d="M70 70 L92 88 L82 102 L106 120 L98 136"
+          stroke={color}
+          strokeWidth={6}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
         />
       </G>
-      <Circle cx={160} cy={40} r={18} fill={colors.wrongSoft} stroke={colors.wrong} strokeWidth={3} />
-      <Path d="M160 30 V42" stroke={colors.wrong} strokeWidth={4} strokeLinecap="round" />
-      <Circle cx={160} cy={50} r={2.6} fill={colors.wrong} />
+      <Circle cx={158} cy={44} r={20} fill={colors.wrongSoft} stroke={colors.wrong} strokeWidth={3} />
+      <Path d="M158 33 V46" stroke={colors.wrong} strokeWidth={4.5} strokeLinecap="round" />
+      <Circle cx={158} cy={54} r={2.8} fill={colors.wrong} />
     </Svg>
   );
 }
 
-// Nothing to show: an empty map with a hollow location pin and a magnifying glass.
-export function EmptyMapArt({ color, size = 180 }: Props) {
+// Nothing to show: two blank question cards and a magnifying glass.
+export function EmptyCardsArt({ color, size = 180 }: Props) {
   return (
     <Svg width={size} height={size} viewBox="0 0 200 200">
-      {/* Folded paper map. */}
+      <G transform="rotate(-10 90 100)">
+        <Rect x={40} y={50} width={90} height={110} rx={14} fill={colors.card} stroke={color} strokeWidth={4} opacity={0.6} />
+      </G>
+      <Rect x={62} y={44} width={90} height={110} rx={14} fill={colors.card} stroke={color} strokeWidth={4} />
+      {/* Dashed question mark: no question here. */}
       <Path
-        d="M 30 60 L 75 45 L 125 60 L 170 45 L 170 150 L 125 165 L 75 150 L 30 165 Z"
-        fill={colors.card}
+        d="M94 84 Q94 70 107 70 Q121 70 121 83 Q121 93 111 98 Q107 100 107 108"
         stroke={color}
-        strokeWidth={4}
-        strokeLinejoin="round"
-      />
-      <Path d="M 75 45 V 150 M 125 60 V 165" stroke={color} strokeWidth={3} opacity={0.5} />
-      {/* Hollow pin: nothing found here. */}
-      <Path
-        d="M100 118 C100 118 82 98 82 86 A18 18 0 0 1 118 86 C118 98 100 118 100 118 Z"
+        strokeWidth={6}
+        strokeDasharray="6 7"
+        strokeLinecap="round"
         fill="none"
-        stroke={color}
-        strokeWidth={4}
-        strokeDasharray="6 6"
-        strokeLinejoin="round"
       />
-      {/* Magnifying glass. */}
-      <Circle cx={146} cy={132} r={20} fill={colors.card} stroke={color} strokeWidth={5} />
-      <Path d="M160 146 L178 164" stroke={color} strokeWidth={7} strokeLinecap="round" />
+      <Circle cx={107} cy={122} r={4} fill={color} opacity={0.6} />
+      <Circle cx={150} cy={142} r={20} fill={colors.card} stroke={color} strokeWidth={5} />
+      <Path d="M164 156 L182 174" stroke={color} strokeWidth={7} strokeLinecap="round" />
     </Svg>
   );
 }
