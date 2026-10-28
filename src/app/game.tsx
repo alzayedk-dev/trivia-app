@@ -19,7 +19,7 @@ import { useNativeDriver } from '../animation';
 import { AppText } from '../components/AppText';
 import { Button } from '../components/Button';
 import { FinalCard } from '../components/FinalCard';
-import { BulbIcon, ChevronLeft } from '../components/Icons';
+import { BulbIcon, ChevronLeft, OfflineIcon } from '../components/Icons';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { PillButton } from '../components/PillButton';
 import { QuestionCard } from '../components/QuestionCard';
@@ -71,6 +71,7 @@ export default function GameScreen() {
 function Game({ settings, onPlayAgain }: { settings: GameSettings; onPlayAgain: () => void }) {
   const [plan] = useState(() => buildPlan(settings));
   const [questions, setQuestions] = useState<RoundQuestion[]>([]);
+  const [offline, setOffline] = useState(false);
   const [done, setDone] = useState(false);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -79,7 +80,11 @@ function Game({ settings, onPlayAgain }: { settings: GameSettings; onPlayAgain: 
     let cancelled = false;
     streamQuestions(
       plan,
-      (question) => setQuestions((prev) => [...prev, toRoundQuestion(question)]),
+      settings.source,
+      ({ question, offlineBackup }) => {
+        setQuestions((prev) => [...prev, toRoundQuestion(question)]);
+        if (offlineBackup) setOffline(true);
+      },
       () => cancelled,
     )
       .then(() => !cancelled && setDone(true))
@@ -87,10 +92,11 @@ function Game({ settings, onPlayAgain }: { settings: GameSettings; onPlayAgain: 
     return () => {
       cancelled = true;
     };
-  }, [plan, attempt]);
+  }, [plan, settings.source, attempt]);
 
   const retry = () => {
     setQuestions([]);
+    setOffline(false);
     setDone(false);
     setFailed(false);
     setAttempt((n) => n + 1);
@@ -104,7 +110,10 @@ function Game({ settings, onPlayAgain }: { settings: GameSettings; onPlayAgain: 
   return (
     <RoundView
       questions={questions}
-      total={plan.length}
+      // If some slots couldn't be filled without repeating a question from this
+      // session, the game is just shorter.
+      total={done ? questions.length : plan.length}
+      offline={offline}
       timerSeconds={settings.timerSeconds}
       onPlayAgain={onPlayAgain}
     />
@@ -115,13 +124,16 @@ type RoundProps = {
   // The questions loaded so far; grows until it reaches `total`.
   questions: RoundQuestion[];
   total: number;
+  // Some questions are my questions because the server couldn't be reached.
+  offline: boolean;
   timerSeconds: number | null;
   onPlayAgain: () => void;
 };
 
-function RoundView({ questions, total, timerSeconds, onPlayAgain }: RoundProps) {
+function RoundView({ questions, total, offline, timerSeconds, onPlayAgain }: RoundProps) {
   const theme = useAppTheme();
   const compact = useCompactLayout();
+  // Sized for the planned number of questions; if the game comes up short, only the first `total` are used.
   const [picks, setPicks] = useState<(string | null)[]>(() => Array(total).fill(null));
   const [slide, setSlide] = useState(0);
   // The furthest card shown so far; a question's timer starts once it's been shown.
@@ -131,14 +143,14 @@ function RoundView({ questions, total, timerSeconds, onPlayAgain }: RoundProps) 
   const [width, setWidth] = useState(0);
   const scrollRef = useRef<ScrollViewInstance>(null);
 
-  const answeredCount = picks.filter((p) => p !== null).length;
+  const answeredCount = picks.slice(0, total).filter((p) => p !== null).length;
   // Only slides the player has reached (and that have loaded) exist, so you can
   // swipe back to review but never past a question you haven't answered.
   const questionSlides = Math.min(answeredCount + 1, questions.length);
   const showFinal = answeredCount === total;
   const nextReady = slide + 1 < questions.length || slide + 1 === total;
 
-  const results = picks.map((p, i) => (p === null ? null : p === questions[i]?.answer));
+  const results = picks.slice(0, total).map((p, i) => (p === null ? null : p === questions[i]?.answer));
   const correctCount = results.filter((r) => r === true).length;
   const score = correctCount * POINTS_PER_CORRECT;
   const onFinal = slide === total;
@@ -227,6 +239,15 @@ function RoundView({ questions, total, timerSeconds, onPlayAgain }: RoundProps) 
         </View>
       )}
 
+      {offline && (
+        <View style={[styles.notice, { backgroundColor: theme.highlightSoft }]} accessibilityRole="alert">
+          <OfflineIcon color={theme.ink} />
+          <AppText weight="regular" style={styles.noticeText}>
+            Can’t reach the question server, so you’re playing My questions.
+          </AppText>
+        </View>
+      )}
+
       <View style={styles.viewport} onLayout={onLayout}>
         {width > 0 && (
           <ScrollView
@@ -281,6 +302,17 @@ const styles = StyleSheet.create({
   scoreInline: { flex: 1, marginLeft: 8 },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   brandText: { fontSize: 20 },
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+  },
+  noticeText: { flex: 1, fontSize: 13, lineHeight: 18 },
   viewport: { flex: 1, marginTop: 10 },
   slide: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 12 },
   footer: { paddingHorizontal: 16, paddingBottom: 12 },

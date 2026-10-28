@@ -11,10 +11,24 @@ import { ShareIcon } from '../components/Icons';
 import { PillButton } from '../components/PillButton';
 import { ShareSheet } from '../components/ShareSheet';
 import { BulbArt, RaysArt } from '../components/TriviaArt';
+import {
+  availableDifficulties,
+  defaultDifficulty,
+  DIFFICULTIES,
+  QuestionSource,
+  sourceCategories,
+} from '../data/availability';
 import { CATEGORIES } from '../data/categories';
 import { Difficulty } from '../data/questions';
 import { warmUp } from '../questionBank';
-import { CategoryChoice, MAX_QUESTIONS, MIN_QUESTIONS, TIMER_OPTIONS, useGameSettings } from '../settings';
+import {
+  activePicks,
+  CategoryChoice,
+  MAX_QUESTIONS,
+  MIN_QUESTIONS,
+  TIMER_OPTIONS,
+  useGameSettings,
+} from '../settings';
 import { SHARE_MESSAGE, SHARE_URL } from '../share';
 import { colors, DIFFICULTY_COLORS, useAppTheme, useCompactLayout } from '../theme';
 
@@ -23,40 +37,47 @@ export function generateMetadata(): Metadata {
   return { title: 'Trivia Night', description: SHARE_MESSAGE };
 }
 
-const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard'];
 const DIFFICULTY_LABELS: Record<Difficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+const SOURCES: { value: QuestionSource; label: string; hint: string }[] = [
+  { value: 'live', label: 'Live questions', hint: 'Fresh questions from the Open Trivia Database. Needs internet.' },
+  { value: 'mine', label: 'My questions', hint: 'Your own question set. Works offline.' },
+];
 // Wait for the player to stop tapping before downloading for new picks.
 const WARM_UP_DELAY_MS = 1200;
 
-// Home doubles as the game setup: categories, difficulty per category, number
-// of questions and time per question, all remembered on the device.
+// Home doubles as the game setup: question source, categories, difficulty per
+// category, number of questions and time per question, all remembered on the device.
 export default function HomeScreen() {
   const theme = useAppTheme();
   const compact = useCompactLayout();
-  const { settings, update } = useGameSettings();
+  const { settings, update, setPicks } = useGameSettings();
   const [sharing, setSharing] = useState(false);
-  const { categories, questionCount, timerSeconds } = settings;
+  const { source, questionCount, timerSeconds } = settings;
+  const picks = activePicks(settings);
 
-  // Start downloading questions for the current picks in the background.
+  // Start downloading live questions for the current picks in the background.
   useEffect(() => {
+    if (source !== 'live') return;
     const timer = setTimeout(
-      () => warmUp(categories.map((c) => ({ categoryId: c.id, difficulty: c.difficulty }))),
+      () => warmUp(picks.map((c) => ({ categoryId: c.id, difficulty: c.difficulty }))),
       WARM_UP_DELAY_MS,
     );
     return () => clearTimeout(timer);
-  }, [categories]);
+  }, [source, picks]);
 
   const toggleCategory = (id: number) => {
-    const picked = categories.some((c) => c.id === id);
+    const picked = picks.some((c) => c.id === id);
     // At least one category stays picked.
-    if (picked && categories.length === 1) return;
-    update({
-      categories: picked ? categories.filter((c) => c.id !== id) : [...categories, { id, difficulty: 'medium' }],
-    });
+    if (picked && picks.length === 1) return;
+    setPicks(picked ? picks.filter((c) => c.id !== id) : [...picks, { id, difficulty: defaultDifficulty(source, id) }]);
   };
 
   const setDifficulty = (id: number, difficulty: Difficulty) =>
-    update({ categories: categories.map((c) => (c.id === id ? { ...c, difficulty } : c)) });
+    setPicks(picks.map((c) => (c.id === id ? { ...c, difficulty } : c)));
+
+  // Shown when a picked category is missing a level, to explain the greyed-out buttons.
+  const someUnavailable = picks.some((c) => availableDifficulties(source, c.id).length < DIFFICULTIES.length);
+  const sourceHint = SOURCES.find((s) => s.value === source)?.hint;
 
   const nameOf = (choice: CategoryChoice) => CATEGORIES.find((c) => c.id === choice.id)?.name ?? '';
 
@@ -82,13 +103,38 @@ export default function HomeScreen() {
           </AppText>
         </View>
 
+        <Section title="Questions from">
+          <View style={styles.sourceSwitch} accessibilityRole="radiogroup">
+            {SOURCES.map((option) => {
+              const selected = source === option.value;
+              return (
+                <Pressable
+                  key={option.value}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={option.label}
+                  onPress={() => update({ source: option.value })}
+                  style={[styles.sourceOption, selected && { backgroundColor: theme.accent }]}
+                >
+                  <AppText style={[styles.sourceLabel, { color: selected ? theme.accentText : theme.ink }]}>
+                    {option.label}
+                  </AppText>
+                </Pressable>
+              );
+            })}
+          </View>
+          <AppText weight="regular" muted style={styles.sourceHint}>
+            {sourceHint}
+          </AppText>
+        </Section>
+
         <Section title="Categories" hint="Pick one or more">
           <View style={styles.chips}>
-            {CATEGORIES.map((category) => (
+            {sourceCategories(source).map((category) => (
               <Chip
                 key={category.id}
                 label={category.name}
-                selected={categories.some((c) => c.id === category.id)}
+                selected={picks.some((c) => c.id === category.id)}
                 onPress={() => toggleCategory(category.id)}
               />
             ))}
@@ -97,7 +143,7 @@ export default function HomeScreen() {
 
         <Section title="Difficulty" hint="For each category">
           <View style={styles.rows}>
-            {categories.map((choice) => (
+            {picks.map((choice) => (
               <View key={choice.id} style={styles.difficultyRow}>
                 <AppText style={styles.rowLabel} numberOfLines={2}>
                   {nameOf(choice)}
@@ -105,17 +151,22 @@ export default function HomeScreen() {
                 <View style={styles.segments}>
                   {DIFFICULTIES.map((difficulty) => {
                     const selected = choice.difficulty === difficulty;
+                    // A level the category has no questions for can't be picked.
+                    const available = availableDifficulties(source, choice.id).includes(difficulty);
                     const tone = DIFFICULTY_COLORS[difficulty];
+                    const label = `${nameOf(choice)}: ${DIFFICULTY_LABELS[difficulty]}`;
                     return (
                       <Pressable
                         key={difficulty}
                         accessibilityRole="radio"
-                        accessibilityState={{ selected }}
-                        accessibilityLabel={`${nameOf(choice)}: ${DIFFICULTY_LABELS[difficulty]}`}
+                        accessibilityState={{ selected, disabled: !available }}
+                        accessibilityLabel={available ? label : `${label} (not available)`}
+                        disabled={!available}
                         onPress={() => setDifficulty(choice.id, difficulty)}
                         style={[
                           styles.segment,
                           selected && { backgroundColor: tone.background, borderColor: tone.text },
+                          !available && styles.segmentUnavailable,
                         ]}
                       >
                         <AppText style={[styles.segmentText, { color: selected ? tone.text : theme.inkMuted }]}>
@@ -128,6 +179,11 @@ export default function HomeScreen() {
               </View>
             ))}
           </View>
+          {someUnavailable && (
+            <AppText weight="regular" muted style={styles.sourceHint}>
+              Greyed-out levels have no questions for that category.
+            </AppText>
+          )}
         </Section>
 
         <Section title="Questions" hint={`${MIN_QUESTIONS} to ${MAX_QUESTIONS}`}>
@@ -167,9 +223,11 @@ export default function HomeScreen() {
       <View style={styles.footer}>
         <Button label="Start" arrow onPress={() => router.push('/game')} />
         {/* Required credit for the Open Trivia Database (CC BY-SA 4.0). */}
-        <AppText weight="regular" muted style={styles.credit}>
-          Questions from Open Trivia Database (opentdb.com), CC BY-SA 4.0
-        </AppText>
+        {source === 'live' && (
+          <AppText weight="regular" muted style={styles.credit}>
+            Questions from Open Trivia Database (opentdb.com), CC BY-SA 4.0
+          </AppText>
+        )}
       </View>
 
       {SHARE_URL && (
@@ -294,6 +352,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   segmentText: { fontSize: 14 },
+  segmentUnavailable: { opacity: 0.3, borderStyle: 'dashed' },
+  sourceSwitch: { flexDirection: 'row', gap: 6, padding: 4, borderRadius: 16, backgroundColor: colors.option },
+  sourceOption: { flex: 1, minHeight: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  sourceLabel: { fontSize: 15 },
+  sourceHint: { fontSize: 13, lineHeight: 18 },
   stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 28 },
   step: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
   stepDisabled: { opacity: 0.35 },

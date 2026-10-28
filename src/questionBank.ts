@@ -1,14 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { QuestionSource } from './data/availability';
 import { categoryName } from './data/categories';
-import { GENERAL_QUESTIONS } from './data/generalQuestions';
-import { Difficulty, GEOGRAPHY_QUESTIONS, Question } from './data/questions';
+import { MY_QUESTIONS } from './data/myQuestions';
+import { Difficulty, Question } from './data/questions';
 import { shuffle } from './shuffle';
 
 // Questions come from the Open Trivia Database (opentdb.com, CC BY-SA 4.0).
 // They're downloaded per category and difficulty and kept on the device, so
-// games start quickly; built-in questions take over when offline. Every
-// question this device has seen is remembered, so nothing repeats until the
-// supply for that category and difficulty has been used up.
+// games start quickly; "My questions" take over when offline. Every question
+// this device has seen is remembered, so nothing repeats until the supply for
+// that category and difficulty has been used up, and a question is never shown
+// twice while the app stays open.
 
 const API = 'https://opentdb.com';
 const BATCH_SIZE = 20;
@@ -43,6 +45,9 @@ let statePromise: Promise<State> | null = null;
 let queue: Promise<unknown> = Promise.resolve();
 let lastRequestAt = 0;
 let offlineUntil = 0;
+// Every question shown since the app was opened. Never cleared, so nothing
+// repeats within a session even after the longer-term "seen" list starts over.
+const sessionSeen = new Set<string>();
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const keyOf = ({ categoryId, difficulty }: Slot) => `${categoryId}:${difficulty}`;
@@ -191,52 +196,74 @@ export function warmUp(slots: Slot[]) {
   for (const slot of unique) void fill(slot, LOW_STOCK);
 }
 
-function backupFor(slot: Slot, state: State, used: Set<string>): Question {
-  const bank = slot.categoryId === 22 ? GEOGRAPHY_QUESTIONS : GENERAL_QUESTIONS;
-  let unseen = shuffle(bank).filter((q) => !state.seen.has(q.id) && !used.has(q.id));
+// Picks one of my questions for a slot: the same category if I have it
+// (otherwise General Knowledge), preferring the same difficulty and questions
+// this device hasn't seen. Never one already shown this session; undefined if
+// those have all been used.
+function fromMyQuestions(slot: Slot, state: State): Question | undefined {
+  const sameCategory = MY_QUESTIONS.filter((q) => q.categoryId === slot.categoryId);
+  const bank = sameCategory.length ? sameCategory : MY_QUESTIONS.filter((q) => q.categoryId === 9);
+  const fresh = shuffle(bank).filter((q) => !sessionSeen.has(q.id));
+  // Once this device has seen them all, the longer-term list starts over.
+  let unseen = fresh.filter((q) => !state.seen.has(q.id));
   if (unseen.length === 0) {
     for (const q of bank) state.seen.delete(q.id);
-    unseen = shuffle(bank).filter((q) => !used.has(q.id));
+    unseen = fresh;
   }
   return unseen.find((q) => q.difficulty === slot.difficulty) ?? unseen[0];
 }
 
-function takeFromStock(state: State, slot: Slot, used: Set<string>): Question | undefined {
+function takeFromStock(state: State, slot: Slot): Question | undefined {
   const stock = state.stock[keyOf(slot)] ?? [];
-  const index = stock.findIndex((q) => !used.has(q.id) && !state.seen.has(q.id));
+  const index = stock.findIndex((q) => !sessionSeen.has(q.id) && !state.seen.has(q.id));
   if (index < 0) return undefined;
   return stock.splice(index, 1)[0];
 }
 
-// Hands the game one question per slot, in order, as each becomes available:
-// from stock, else after a download, else from another difficulty of the same
-// category, else from the built-in backup. Stops early if `cancelled()`.
+// What the game is told about each question it's given.
+export type Delivery = {
+  question: Question;
+  // True when this is one of my questions because the server couldn't be reached.
+  offlineBackup: boolean;
+};
+
+// Hands the game one question per slot, in order, as each becomes available.
+// Live: from stock, else after a download, else another difficulty of the same
+// category, else my questions. Mine: from my questions only. Slots that can't
+// be filled without repeating a question from this session are skipped, so a
+// game can come up short. Stops early if `cancelled()`.
 export async function streamQuestions(
   slots: Slot[],
-  onQuestion: (question: Question) => void,
+  source: QuestionSource,
+  onQuestion: (delivery: Delivery) => void,
   cancelled: () => boolean,
 ): Promise<void> {
   const state = await getState();
-  const used = new Set<string>();
   for (const slot of slots) {
     if (cancelled()) return;
-    let question = takeFromStock(state, slot, used);
-    if (!question && Date.now() >= offlineUntil) {
-      await Promise.race([fill(slot, 1), sleep(QUESTION_WAIT_MS)]);
-      question = takeFromStock(state, slot, used);
-    }
-    if (!question) {
-      const others = (['easy', 'medium', 'hard'] as const).filter((d) => d !== slot.difficulty);
-      for (const difficulty of others) {
-        question ??= takeFromStock(state, { categoryId: slot.categoryId, difficulty }, used);
+    let question: Question | undefined;
+    let offlineBackup = false;
+    if (source === 'live') {
+      question = takeFromStock(state, slot);
+      if (!question && Date.now() >= offlineUntil) {
+        await Promise.race([fill(slot, 1), sleep(QUESTION_WAIT_MS)]);
+        question = takeFromStock(state, slot);
       }
+      if (!question) {
+        const others = (['easy', 'medium', 'hard'] as const).filter((d) => d !== slot.difficulty);
+        for (const difficulty of others) {
+          question ??= takeFromStock(state, { categoryId: slot.categoryId, difficulty });
+        }
+      }
+      if (!question) offlineBackup = Date.now() < offlineUntil;
     }
-    question ??= backupFor(slot, state, used);
-    used.add(question.id);
+    question ??= fromMyQuestions(slot, state);
+    if (!question) continue;
+    sessionSeen.add(question.id);
     state.seen.add(question.id);
     if (cancelled()) return;
-    onQuestion(question);
+    onQuestion({ question, offlineBackup });
   }
   await save(state);
-  warmUp(slots);
+  if (source === 'live') warmUp(slots);
 }

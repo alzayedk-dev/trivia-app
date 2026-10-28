@@ -57,6 +57,22 @@ export function ShareIcon({ color, size = 18 }: Props) {
   );
 }
 
+// A cloud with a line through it: no connection.
+export function OfflineIcon({ color, size = 20 }: Props) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path
+        d="M7 18 H17 A4 4 0 0 0 17.5 10 A6 6 0 0 0 6.2 9.2 A4.5 4.5 0 0 0 7 18 Z M4 4 L20 20"
+        stroke={color}
+        strokeWidth={2.2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </Svg>
+  );
+}
+
 // The Trivia Night logo: a small lightbulb with a question mark.
 export function BulbIcon({ color, size = 26 }: Props) {
   return (

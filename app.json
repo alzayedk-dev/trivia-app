@@ -2,7 +2,7 @@
   "expo": {
     "name": "Trivia Night",
     "slug": "trivia-app",
-    "scheme": "geotrivia",
+    "scheme": "trivianight",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -13,7 +13,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#4B47C9",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -28,7 +28,16 @@
     "plugins": [
       "expo-font",
       "expo-router",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#EEF0FB"
+        }
+      ]
     ],
     "extra": {
       "router": {
