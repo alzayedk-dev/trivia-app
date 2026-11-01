@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, View, ViewStyle } from 'react-native';
 import { colors, PressState, useAppTheme } from '../theme';
 import { AppText } from './AppText';
+import { useStrings } from '../strings';
 import { ArrowRight } from './Icons';
 
 type Props = {
@@ -15,6 +16,7 @@ type Props = {
 
 export function Button({ label, onPress, variant = 'primary', arrow, disabled, style }: Props) {
   const theme = useAppTheme();
+  const { rtl } = useStrings();
   const primary = variant === 'primary';
   const textColor = primary ? theme.accentText : theme.accent;
   return (
@@ -38,13 +40,18 @@ export function Button({ label, onPress, variant = 'primary', arrow, disabled, s
         <AppText weight="black" style={[styles.label, { color: textColor }]}>
           {label}
         </AppText>
-        {arrow && <ArrowRight color={textColor} />}
+        {arrow && (
+          <View style={rtl && styles.flip}>
+            <ArrowRight color={textColor} />
+          </View>
+        )}
       </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  flip: { transform: [{ scaleX: -1 }] },
   base: {
     minHeight: 60,
     borderRadius: 18,

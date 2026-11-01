@@ -16,11 +16,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AI_QUESTION_COUNT, fetchAiQuestions } from '../aiQuestions';
+import { recordScore } from '../bestScores';
 import { useNativeDriver } from '../animation';
 import { AppText } from '../components/AppText';
 import { Button } from '../components/Button';
+import { Direction } from '../components/Direction';
 import { FinalCard } from '../components/FinalCard';
-import { BulbIcon, ChevronLeft, OfflineIcon } from '../components/Icons';
+import { BulbIcon, ChevronLeft, OfflineIcon, RefreshIcon } from '../components/Icons';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { PillButton } from '../components/PillButton';
 import { QuestionCard } from '../components/QuestionCard';
@@ -30,6 +32,7 @@ import { buildPlan, POINTS_PER_CORRECT, RoundQuestion, shuffle, TIMED_OUT, toRou
 import { streamQuestions } from '../questionBank';
 import { GameSettings, useGameSettings } from '../settings';
 import { SHARE_MESSAGE } from '../share';
+import { LanguageProvider, useStrings } from '../strings';
 import { useAppTheme, useCompactLayout, useDesktopLayout } from '../theme';
 
 const NUDGE = 40;
@@ -47,9 +50,6 @@ export function generateMetadata(): Metadata {
 
 const goHome = () => router.dismissTo('/');
 
-// Shown when the AI can't write the questions; the small line under it says why.
-const AI_ERROR_MESSAGE = 'The AI couldn’t write your questions this time. Give it another go.';
-
 export default function GameScreen() {
   const { settings, loaded } = useGameSettings();
   const [gameNumber, setGameNumber] = useState(0);
@@ -65,11 +65,17 @@ export default function GameScreen() {
   // On a refresh, wait for the saved settings so the game starts the right way.
   if (!loaded) return <LoadingScreen />;
 
+  // An AI game in Arabic is written in Arabic and the screens read right to left.
+  const language = settings.source === 'ai' ? settings.aiLanguage : 'en';
   return (
-    <Animated.View style={[styles.fill, { opacity: fade }]}>
-      {/* A new key per game resets everything and fetches new questions. */}
-      <Game key={gameNumber} settings={settings} onPlayAgain={playAgain} />
-    </Animated.View>
+    <LanguageProvider value={language}>
+      <Animated.View style={[styles.fill, { opacity: fade }]}>
+        <Direction rtl={language === 'ar'} style={styles.fill}>
+          {/* A new key per game resets everything and fetches new questions. */}
+          <Game key={gameNumber} settings={settings} onPlayAgain={playAgain} />
+        </Direction>
+      </Animated.View>
+    </LanguageProvider>
   );
 }
 
@@ -77,6 +83,7 @@ export default function GameScreen() {
 // built-in backup) and show as they arrive, so play can start before all are
 // ready. AI games wait for the AI to write all 5 questions.
 function Game({ settings, onPlayAgain }: { settings: GameSettings; onPlayAgain: () => void }) {
+  const { t } = useStrings();
   const isAi = settings.source === 'ai';
   // AI games have no category plan: the AI writes the questions from a topic.
   const [plan] = useState(() => (isAi ? [] : buildPlan(settings)));
@@ -91,7 +98,8 @@ function Game({ settings, onPlayAgain }: { settings: GameSettings; onPlayAgain: 
   useEffect(() => {
     let cancelled = false;
     if (settings.source === 'ai') {
-      fetchAiQuestions(settings.aiTopic).then((result) => {
+      const style = { difficulty: settings.aiDifficulty, language: settings.aiLanguage, model: settings.aiModel };
+      fetchAiQuestions(settings.aiTopic, style).then((result) => {
         if (cancelled) return;
         if (result.ok) {
           setQuestions(result.questions.map(toRoundQuestion));
@@ -117,7 +125,7 @@ function Game({ settings, onPlayAgain }: { settings: GameSettings; onPlayAgain: 
     return () => {
       cancelled = true;
     };
-  }, [plan, settings.source, settings.aiTopic, attempt]);
+  }, [plan, settings.source, settings.aiTopic, settings.aiDifficulty, settings.aiLanguage, settings.aiModel, attempt]);
 
   const retry = () => {
     setQuestions([]);
@@ -131,13 +139,13 @@ function Game({ settings, onPlayAgain }: { settings: GameSettings; onPlayAgain: 
   if (questions.length === 0) {
     if (failed) {
       return isAi ? (
-        <ErrorScreen message={AI_ERROR_MESSAGE} detail={aiDetail} onRetry={retry} onHome={goHome} />
+        <ErrorScreen message={t.aiError} detail={aiDetail} onRetry={retry} onHome={goHome} />
       ) : (
         <ErrorScreen onRetry={retry} onHome={goHome} />
       );
     }
     if (done) return <EmptyScreen onRetry={retry} onHome={goHome} />;
-    return <LoadingScreen message={isAi ? 'Writing your questions…' : 'Finding your questions…'} />;
+    return <LoadingScreen message={isAi ? t.writing : 'Finding your questions…'} />;
   }
   return (
     <RoundView
@@ -148,6 +156,8 @@ function Game({ settings, onPlayAgain }: { settings: GameSettings; onPlayAgain: 
       offline={offline}
       timerSeconds={settings.timerSeconds}
       onPlayAgain={onPlayAgain}
+      // AI games can be swapped for a fresh set on the same topic, and keep a best score per topic.
+      topic={isAi ? settings.aiTopic : undefined}
     />
   );
 }
@@ -160,9 +170,12 @@ type RoundProps = {
   offline: boolean;
   timerSeconds: number | null;
   onPlayAgain: () => void;
+  // The topic of an AI game.
+  topic?: string;
 };
 
-function RoundView({ questions, total, offline, timerSeconds, onPlayAgain }: RoundProps) {
+function RoundView({ questions, total, offline, timerSeconds, onPlayAgain, topic }: RoundProps) {
+  const { t, rtl } = useStrings();
   const theme = useAppTheme();
   const compact = useCompactLayout();
   const desktop = useDesktopLayout();
@@ -188,6 +201,18 @@ function RoundView({ questions, total, offline, timerSeconds, onPlayAgain }: Rou
   const score = correctCount * POINTS_PER_CORRECT;
   const onFinal = slide === total;
   const answered = !onFinal && picks[slide] !== null;
+
+  // When an AI game ends, save the score if it's the best for the topic so far.
+  const [bestNote, setBestNote] = useState('');
+  useEffect(() => {
+    if (!showFinal || !topic) return;
+    recordScore(topic, score, total * POINTS_PER_CORRECT).then(({ previous, isBest }) => {
+      if (isBest && previous !== null) setBestNote(t.newBest);
+      else if (!isBest && previous !== null) setBestNote(t.bestScore(previous));
+    });
+    // Runs once, when the last question is answered.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showFinal]);
 
   const onLayout = (e: LayoutChangeEvent) => {
     const w = e.nativeEvent.layout.width;
@@ -240,9 +265,29 @@ function RoundView({ questions, total, offline, timerSeconds, onPlayAgain }: Rou
     setFiftyFifty({ index: slide, removed });
   };
 
+  const homeButton = (
+    <PillButton
+      label={t.home}
+      icon={
+        <View style={rtl && styles.flip}>
+          <ChevronLeft color={theme.accent} />
+        </View>
+      }
+      onPress={goHome}
+    />
+  );
+  // AI games: throw these questions away and get a fresh set on the same topic.
+  const newSetButton = topic ? (
+    <PillButton
+      label={t.newSet}
+      icon={compact ? <RefreshIcon color={theme.accent} /> : undefined}
+      iconOnly={compact}
+      onPress={onPlayAgain}
+    />
+  ) : null;
   const buttonStyle = desktop ? styles.footerButtonDesktop : undefined;
   let footer = null;
-  if (onFinal) footer = <Button label="Play again" onPress={onPlayAgain} style={buttonStyle} />;
+  if (onFinal) footer = <Button label={t.playAgain} onPress={onPlayAgain} style={buttonStyle} />;
   else if (!answered && !fiftyFifty)
     footer = <Button label="50/50" variant="secondary" onPress={applyFiftyFifty} style={buttonStyle} />;
   else if (answered && !nextReady)
@@ -252,7 +297,7 @@ function RoundView({ questions, total, offline, timerSeconds, onPlayAgain }: Rou
   else if (answered)
     footer = (
       <Button
-        label={slide === total - 1 ? 'See score' : 'Next'}
+        label={slide === total - 1 ? t.seeScore : t.next}
         arrow
         onPress={() => goTo(slide + 1)}
         style={buttonStyle}
@@ -264,21 +309,24 @@ function RoundView({ questions, total, offline, timerSeconds, onPlayAgain }: Rou
       {compact ? (
         // Short phones: Home and the score share one row to leave room for the card.
         <View style={[styles.header, styles.topBar, desktop && styles.gutterDesktop]}>
-          <PillButton label="Home" icon={<ChevronLeft color={theme.accent} />} onPress={goHome} />
+          {homeButton}
           <View style={styles.scoreInline}>
             <ScoreCard score={score} results={results} current={slide} />
           </View>
+          {newSetButton}
         </View>
       ) : (
         <View style={[styles.header, desktop && styles.gutterDesktop]}>
           <View style={styles.topBar}>
-            <PillButton label="Home" icon={<ChevronLeft color={theme.accent} />} onPress={goHome} />
-            <View style={styles.brand}>
-              <BulbIcon color={theme.accent} size={24} />
-              <AppText weight="black" style={styles.brandText}>
-                {theme.title}
-              </AppText>
-            </View>
+            {homeButton}
+            {newSetButton ?? (
+              <View style={styles.brand}>
+                <BulbIcon color={theme.accent} size={24} />
+                <AppText weight="black" style={styles.brandText}>
+                  {theme.title}
+                </AppText>
+              </View>
+            )}
           </View>
           <ScoreCard score={score} results={results} current={slide} />
         </View>
@@ -296,7 +344,8 @@ function RoundView({ questions, total, offline, timerSeconds, onPlayAgain }: Rou
         </View>
       )}
 
-      <View style={styles.viewport} onLayout={onLayout}>
+      {/* The card pager keeps swiping left to right even in Arabic; the cards inside read right to left. */}
+      <Direction rtl={false} style={styles.viewport} onLayout={onLayout}>
         {width > 0 && (
           <ScrollView
             ref={scrollRef}
@@ -329,12 +378,12 @@ function RoundView({ questions, total, offline, timerSeconds, onPlayAgain }: Rou
             ))}
             {showFinal && (
               <View style={[styles.slide, desktop && styles.slideDesktop, { width }]}>
-                <FinalCard score={score} correctCount={correctCount} total={total} />
+                <FinalCard score={score} correctCount={correctCount} total={total} note={bestNote} />
               </View>
             )}
           </ScrollView>
         )}
-      </View>
+      </Direction>
 
       {/* Space is kept for the button so the card doesn't jump when it appears. */}
       <View style={[styles.footer, desktop && styles.footerDesktop]}>
@@ -346,6 +395,7 @@ function RoundView({ questions, total, offline, timerSeconds, onPlayAgain }: Rou
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
+  flip: { transform: [{ scaleX: -1 }] },
   safe: { flex: 1, width: '100%', maxWidth: 560, alignSelf: 'center' },
   // Computers: a wider column, with the card centred in it and roomier margins.
   safeDesktop: { maxWidth: 920 },
@@ -356,7 +406,7 @@ const styles = StyleSheet.create({
   footerButtonDesktop: { width: '100%', maxWidth: 440 },
   header: { paddingHorizontal: 16, paddingTop: 8, gap: 10 },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  scoreInline: { flex: 1, marginLeft: 8 },
+  scoreInline: { flex: 1, marginHorizontal: 8 },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   brandText: { fontSize: 20 },
   notice: {

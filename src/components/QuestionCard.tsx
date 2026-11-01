@@ -1,16 +1,13 @@
 import { StyleSheet, View } from 'react-native';
-import { Difficulty } from '../data/questions';
 import { POINTS_PER_CORRECT, RoundQuestion, TIMED_OUT } from '../game';
+import { useStrings } from '../strings';
 import { colors, DIFFICULTY_COLORS, useAppTheme, useCompactLayout, useDesktopLayout, useLargeLayout } from '../theme';
+import { Direction } from './Direction';
 import { AnswerButton, AnswerState } from './AnswerButton';
 import { AnswerFeedback } from './AnswerFeedback';
 import { AppText } from './AppText';
 import { CardWatermark } from './CardWatermark';
 import { TimerBar, TimerPill, useQuestionTimer } from './QuestionTimer';
-
-const LETTERS = ['A', 'B', 'C', 'D'];
-
-const DIFFICULTY_LABELS: Record<Difficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
 
 type Props = {
   item: RoundQuestion;
@@ -30,6 +27,7 @@ type Props = {
 // Question and feedback sit at the top; the answers sit at the bottom of the
 // card, where a thumb naturally rests.
 export function QuestionCard({ item, index, total, picked, onPick, timerSeconds, started, onTimeout, removed }: Props) {
+  const { t, rtl } = useStrings();
   const theme = useAppTheme();
   const compact = useCompactLayout();
   const large = useLargeLayout();
@@ -57,7 +55,14 @@ export function QuestionCard({ item, index, total, picked, onPick, timerSeconds,
     .filter(({ option }) => stateFor(option) !== 'faded' && (answered || !removed.includes(option)));
 
   return (
-    <View style={[styles.card, compact && styles.cardCompact, desktop && (compact ? styles.cardDesktopCompact : styles.cardDesktop)]}>
+    <Direction
+      rtl={rtl}
+      style={[
+        styles.card,
+        compact && styles.cardCompact,
+        desktop && (compact ? styles.cardDesktopCompact : styles.cardDesktop),
+      ]}
+    >
       <CardWatermark size={desktop ? 380 : 300} offset={70} />
 
       <View style={styles.meta}>
@@ -74,7 +79,7 @@ export function QuestionCard({ item, index, total, picked, onPick, timerSeconds,
             },
           ]}
         >
-          {DIFFICULTY_LABELS[item.question.difficulty]}
+          {t.difficulty[item.question.difficulty]}
         </AppText>
       </View>
       {timerSeconds !== null && <TimerBar progress={progress} secondsLeft={secondsLeft} />}
@@ -94,6 +99,8 @@ export function QuestionCard({ item, index, total, picked, onPick, timerSeconds,
         {item.question.prompt}
       </AppText>
 
+      {item.question.unsure && <AppText style={styles.unsure}>{t.unsure}</AppText>}
+
       {answered && (
         <View
           style={[
@@ -104,7 +111,7 @@ export function QuestionCard({ item, index, total, picked, onPick, timerSeconds,
         >
           <View style={styles.verdictRow}>
             <AppText weight="black" style={[styles.verdict, { color: correct ? colors.correct : colors.wrong }]}>
-              {correct ? 'Correct' : timedOut ? "Time's up" : 'Incorrect'}
+              {correct ? t.correct : timedOut ? t.timesUp : t.incorrect}
             </AppText>
             {correct && (
               <AppText weight="black" style={styles.pointsPill}>
@@ -113,7 +120,10 @@ export function QuestionCard({ item, index, total, picked, onPick, timerSeconds,
             )}
           </View>
           {item.question.fact && (
-            <AppText weight="regular" style={[styles.fact, compact && styles.factCompact, desktop && styles.factDesktop]}>
+            <AppText
+              weight="regular"
+              style={[styles.fact, compact && styles.factCompact, desktop && styles.factDesktop]}
+            >
               {item.question.fact}
             </AppText>
           )}
@@ -127,7 +137,7 @@ export function QuestionCard({ item, index, total, picked, onPick, timerSeconds,
           <AnswerButton
             key={option}
             label={option}
-            letter={LETTERS[i]}
+            letter={t.letters[i]}
             state={stateFor(option)}
             onPress={() => onPick(option)}
             style={desktop ? styles.gridItem : undefined}
@@ -136,11 +146,22 @@ export function QuestionCard({ item, index, total, picked, onPick, timerSeconds,
       </View>
 
       {answered && <AnswerFeedback correct={correct} points={POINTS_PER_CORRECT} />}
-    </View>
+    </Direction>
   );
 }
 
 const styles = StyleSheet.create({
+  // Marks an AI question the fact-checker wasn't sure about.
+  unsure: {
+    alignSelf: 'flex-start',
+    fontSize: 13,
+    color: DIFFICULTY_COLORS.medium.text,
+    backgroundColor: DIFFICULTY_COLORS.medium.background,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
   card: {
     flex: 1,
     backgroundColor: colors.card,

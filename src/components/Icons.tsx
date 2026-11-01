@@ -6,7 +6,30 @@ type Props = { color: string; size?: number };
 export function ChevronLeft({ color, size = 18 }: Props) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Path d="M15 5 L8 12 L15 19" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <Path
+        d="M15 5 L8 12 L15 19"
+        stroke={color}
+        strokeWidth={3}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </Svg>
+  );
+}
+
+// Two arrows chasing each other: "get a new set".
+export function RefreshIcon({ color, size = 20 }: Props) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path
+        d="M20 11 A8 8 0 0 0 6 6.5 M4 4 V7.5 H7.5 M4 13 A8 8 0 0 0 18 17.5 M20 20 V16.5 H16.5"
+        stroke={color}
+        strokeWidth={2.4}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
     </Svg>
   );
 }

@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { AI_DIFFICULTIES, AI_LANGUAGES, AI_MODELS, AiDifficulty, AiLanguage, AiModel } from './aiOptions';
 import {
   availableDifficulties,
   CategorySource,
@@ -25,6 +26,11 @@ export type GameSettings = {
   picks: Record<CategorySource, CategoryChoice[]>;
   // The topic typed for AI mode, remembered for next time.
   aiTopic: string;
+  aiDifficulty: AiDifficulty;
+  // The language the AI writes in; Arabic also makes the game screens read right to left.
+  aiLanguage: AiLanguage;
+  // Which free model writes the questions.
+  aiModel: AiModel;
   questionCount: number;
   timerSeconds: number | null;
 };
@@ -42,6 +48,9 @@ export const DEFAULT_SETTINGS: GameSettings = {
     ],
   },
   aiTopic: '',
+  aiDifficulty: 'mixed',
+  aiLanguage: 'en',
+  aiModel: 'auto',
   questionCount: 10,
   timerSeconds: 30,
 };
@@ -81,6 +90,9 @@ function sanitize(raw: (Partial<GameSettings> & { categories?: unknown }) | null
       mine: cleanPicks('mine', raw.picks?.mine),
     },
     aiTopic: typeof raw.aiTopic === 'string' ? raw.aiTopic.slice(0, MAX_TOPIC_LENGTH) : '',
+    aiDifficulty: AI_DIFFICULTIES.find((d) => d === raw.aiDifficulty) ?? DEFAULT_SETTINGS.aiDifficulty,
+    aiLanguage: AI_LANGUAGES.find((l) => l.value === raw.aiLanguage)?.value ?? DEFAULT_SETTINGS.aiLanguage,
+    aiModel: AI_MODELS.find((m) => m.value === raw.aiModel)?.value ?? DEFAULT_SETTINGS.aiModel,
     questionCount:
       count >= MIN_QUESTIONS && count <= MAX_QUESTIONS ? Math.round(count) : DEFAULT_SETTINGS.questionCount,
     timerSeconds: TIMER_OPTIONS.includes(raw.timerSeconds ?? null)

@@ -1,11 +1,13 @@
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import type { Metadata } from 'expo-router/server';
 import type { ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg from 'react-native-svg';
+import { AI_DIFFICULTIES, AI_LANGUAGES, AI_MODELS, AI_TOPICS } from '../aiOptions';
 import { AI_QUESTION_COUNT } from '../aiQuestions';
+import { BestScore, loadBestScores } from '../bestScores';
 import { AppText } from '../components/AppText';
 import { Button } from '../components/Button';
 import { ShareIcon } from '../components/Icons';
@@ -50,10 +52,17 @@ export function generateMetadata(): Metadata {
 }
 
 const DIFFICULTY_LABELS: Record<Difficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+const AI_DIFFICULTY_OPTIONS = AI_DIFFICULTIES.map((value) =>
+  value === 'mixed'
+    ? { value, label: 'Mixed' }
+    : { value, label: DIFFICULTY_LABELS[value], tone: DIFFICULTY_COLORS[value] },
+);
 const SOURCES: { value: QuestionSource; label: string; hint: string }[] = [
   { value: 'live', label: 'Live questions', hint: 'Fresh questions from the Open Trivia Database. Needs internet.' },
   { value: 'ai', label: 'AI mode', hint: 'Type any topic and an AI writes questions about it. Needs internet.' },
 ];
+// How many best scores the home screen lists.
+const MAX_BEST_ROWS = 6;
 // Wait for the player to stop tapping before downloading for new picks.
 const WARM_UP_DELAY_MS = 1200;
 
@@ -65,7 +74,14 @@ export default function HomeScreen() {
   const compact = useCompactLayout();
   const { settings, update, setPicks } = useGameSettings();
   const [sharing, setSharing] = useState(false);
-  const { source, questionCount, timerSeconds, aiTopic } = settings;
+  const { source, questionCount, timerSeconds, aiTopic, aiDifficulty, aiLanguage, aiModel } = settings;
+  // The best score for each AI topic tried, refreshed whenever Home comes back into view.
+  const [bests, setBests] = useState<BestScore[]>([]);
+  useFocusEffect(
+    useCallback(() => {
+      loadBestScores().then(setBests);
+    }, []),
+  );
   const picks = activePicks(settings);
   const isAi = source === 'ai';
   // The category lists belong to Live and My questions; AI mode doesn't show them.
@@ -157,23 +173,65 @@ export default function HomeScreen() {
       </Section>
 
       {isAi ? (
-        <Section title="Your topic" hint="Anything you like">
-          <TextInput
-            value={aiTopic}
-            onChangeText={(text) => update({ aiTopic: text })}
-            placeholder="e.g. Volcanoes, 90s hip hop, Formula 1"
-            placeholderTextColor={theme.inkMuted}
-            selectionColor={theme.accent}
-            accessibilityLabel="Topic for the AI"
-            maxLength={MAX_TOPIC_LENGTH}
-            returnKeyType="go"
-            onSubmitEditing={startGame}
-            style={[styles.topicInput, { color: theme.ink }]}
-          />
-          <AppText weight="regular" muted style={styles.sourceHint}>
-            The AI writes {AI_QUESTION_COUNT} questions about it, easy to hard. Tap Let’s start when you’re ready.
-          </AppText>
-        </Section>
+        <>
+          <Section title="Your topic" hint="Type one or tap one">
+            <TextInput
+              value={aiTopic}
+              onChangeText={(text) => update({ aiTopic: text })}
+              placeholder="e.g. Volcanoes, 90s hip hop, Formula 1"
+              placeholderTextColor={theme.inkMuted}
+              selectionColor={theme.accent}
+              accessibilityLabel="Topic for the AI"
+              maxLength={MAX_TOPIC_LENGTH}
+              returnKeyType="go"
+              onSubmitEditing={startGame}
+              style={[styles.topicInput, { color: theme.ink }]}
+            />
+            <View style={styles.chips}>
+              {AI_TOPICS[aiLanguage].map((label) => (
+                <Chip
+                  key={label}
+                  label={label}
+                  selected={aiTopic.trim().toLowerCase() === label.toLowerCase()}
+                  onPress={() => update({ aiTopic: label })}
+                />
+              ))}
+            </View>
+            <AppText weight="regular" muted style={styles.sourceHint}>
+              The AI writes {AI_QUESTION_COUNT} questions about it. Tap Let’s start when you’re ready.
+            </AppText>
+          </Section>
+
+          <Section title="Language" hint="Arabic reads right to left">
+            <Segmented
+              label="Language"
+              options={AI_LANGUAGES}
+              value={aiLanguage}
+              onChange={(value) => update({ aiLanguage: value })}
+            />
+          </Section>
+
+          <Section title="Difficulty" hint="Mixed goes easy to hard">
+            <Segmented
+              label="Difficulty"
+              options={AI_DIFFICULTY_OPTIONS}
+              value={aiDifficulty}
+              onChange={(value) => update({ aiDifficulty: value })}
+            />
+          </Section>
+
+          <Section title="AI model" hint="All free">
+            <Segmented
+              label="AI model"
+              options={AI_MODELS}
+              value={aiModel}
+              onChange={(value) => update({ aiModel: value })}
+            />
+            <AppText weight="regular" muted style={styles.sourceHint}>
+              {AI_MODELS.find((m) => m.value === aiModel)?.hint}
+            </AppText>
+          </Section>
+        </>
       ) : (
         <>
           <Section title="Categories" hint="Pick one or more">
@@ -268,6 +326,33 @@ export default function HomeScreen() {
           ))}
         </View>
       </Section>
+
+      {isAi && bests.length > 0 && (
+        <Section title="Your best scores" hint="Tap one to play it again">
+          <View style={styles.rows}>
+            {bests.slice(0, MAX_BEST_ROWS).map((entry) => (
+              <Pressable
+                key={entry.topic.toLowerCase()}
+                accessibilityRole="button"
+                accessibilityLabel={`${entry.topic}: best score ${entry.best} out of ${entry.outOf}`}
+                onPress={() => update({ aiTopic: entry.topic })}
+                style={({ hovered }: PressState) => [styles.bestRow, hovered && { backgroundColor: theme.accentSoft }]}
+              >
+                <AppText numberOfLines={1} style={styles.rowLabel}>
+                  {entry.topic}
+                </AppText>
+                <AppText weight="black" style={{ color: theme.accent }}>
+                  {entry.best}
+                  <AppText weight="regular" muted>
+                    {' '}
+                    / {entry.outOf}
+                  </AppText>
+                </AppText>
+              </Pressable>
+            ))}
+          </View>
+        </Section>
+      )}
     </>
   );
 
@@ -373,6 +458,44 @@ function Chip({ label, selected, onPress }: { label: string; selected: boolean; 
   );
 }
 
+type SegmentedProps<T extends string> = {
+  label: string;
+  options: { value: T; label: string; tone?: { text: string; background: string } }[];
+  value: T;
+  onChange: (value: T) => void;
+};
+
+// A row of equal-width choices where exactly one is picked.
+function Segmented<T extends string>({ label, options, value, onChange }: SegmentedProps<T>) {
+  const theme = useAppTheme();
+  return (
+    <View style={styles.segmentRow} accessibilityRole="radiogroup" accessibilityLabel={label}>
+      {options.map((option) => {
+        const selected = option.value === value;
+        const tone = option.tone ?? { text: theme.accent, background: theme.accentSoft };
+        return (
+          <Pressable
+            key={option.value}
+            accessibilityRole="radio"
+            accessibilityState={{ selected }}
+            accessibilityLabel={option.label}
+            onPress={() => onChange(option.value)}
+            style={[
+              styles.segment,
+              styles.segmentFlex,
+              selected && { backgroundColor: tone.background, borderColor: tone.text },
+            ]}
+          >
+            <AppText numberOfLines={1} style={[styles.segmentText, { color: selected ? tone.text : theme.inkMuted }]}>
+              {option.label}
+            </AppText>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 type StepProps = { label: string; accessibilityLabel: string; disabled: boolean; onPress: () => void };
 
 function StepButton({ label, accessibilityLabel, disabled, onPress }: StepProps) {
@@ -462,6 +585,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   segmentText: { fontSize: 14 },
+  segmentRow: { flexDirection: 'row', gap: 6 },
+  segmentFlex: { flex: 1, minWidth: 0 },
+  bestRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 44,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: colors.option,
+  },
   segmentUnavailable: { opacity: 0.3, borderStyle: 'dashed' },
   sourceSwitch: { flexDirection: 'row', gap: 6, padding: 4, borderRadius: 16, backgroundColor: colors.option },
   sourceOption: {

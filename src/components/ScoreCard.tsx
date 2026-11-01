@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
 import { useNativeDriver } from '../animation';
+import { useStrings } from '../strings';
 import { colors, useAppTheme, useCompactLayout } from '../theme';
 import { AppText } from './AppText';
 import { CardWatermark } from './CardWatermark';
@@ -15,6 +16,7 @@ type Props = {
 // Score plus a segmented progress bar: one segment per question, green when
 // right, red when wrong, highlighted for the current one. Fits 5 to 15 questions.
 export function ScoreCard({ score, results, current }: Props) {
+  const { t } = useStrings();
   const theme = useAppTheme();
   const compact = useCompactLayout();
   const pop = useState(() => new Animated.Value(1))[0];
@@ -39,7 +41,7 @@ export function ScoreCard({ score, results, current }: Props) {
         {/* Short phones fit the score card beside the Home button, so the label goes. */}
         {!compact && (
           <AppText muted style={styles.label}>
-            SCORE
+            {t.score}
           </AppText>
         )}
         <Animated.View style={{ transform: [{ scale: pop }], alignSelf: 'flex-start' }}>

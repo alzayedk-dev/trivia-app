@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useStrings } from '../strings';
 import { useAppTheme, useDesktopLayout } from '../theme';
 import { AppText } from './AppText';
 import { Button } from './Button';
@@ -72,14 +73,15 @@ export function ErrorScreen({
   message = 'Something went wrong while getting your questions. Check your connection and give it another go.',
 }: StateProps) {
   const theme = useAppTheme();
+  const { t } = useStrings();
   return (
     <StatusScreen
       art={<BlownBulbArt color={theme.accent} />}
-      title="The lights flickered"
+      title={t.errorTitle}
       message={message}
       detail={detail}
-      primary={onRetry && { label: 'Try again', onPress: onRetry }}
-      secondary={onHome && { label: 'Home', onPress: onHome }}
+      primary={onRetry && { label: t.tryAgain, onPress: onRetry }}
+      secondary={onHome && { label: t.home, onPress: onHome }}
       withBackground={withBackground}
     />
   );

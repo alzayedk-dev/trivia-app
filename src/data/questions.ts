@@ -11,8 +11,10 @@ export type Question = {
   prompt: string;
   // The first option is always the correct answer; options are shuffled at play time.
   options: string[];
-  // Only built-in questions have a fun fact.
+  // A fun fact (built-in questions) or the AI's one-line reason the answer is right.
   fact?: string;
+  // AI questions the fact-checker wasn't sure about.
+  unsure?: boolean;
 };
 
 // Offline backup for the Geography category.

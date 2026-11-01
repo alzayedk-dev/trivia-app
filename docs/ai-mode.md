@@ -1,7 +1,20 @@
 # AI mode
 
-The player types a topic, taps **Let's start**, and an AI writes 5 questions about it.
-The game then plays like any other (timer, 50/50, swiping, scoring).
+The player types a topic (or taps one of the topic buttons), taps **Let's start**, and an AI writes 5 questions
+about it. The game then plays like any other (timer, 50/50, swiping, scoring).
+
+## What the player can choose
+
+- **Topic:** typed, or one tap on Soccer, Islam, Middle East culture or Kuwait.
+- **Language:** English or Arabic. In Arabic the AI writes in Arabic and the game screens read right to left.
+- **Difficulty:** Mixed (easy to hard), or all Easy, Medium or Hard.
+- **AI model:** Auto, Gemma or Nemotron (all free). The pick goes first; if it is busy another one steps in.
+- **During a game:** a **New set** button throws the questions away and asks for a fresh set on the same topic.
+  After each answer, one short line explains why the right answer is right.
+- **Fact-checker:** after the questions are written, a second request asks a different model to check each one.
+  Questions it isn't sure about get a "Not sure about this one" tag. If the check can't run, nothing is tagged.
+  It adds about 10 seconds.
+- **Best scores:** the best score for each topic is saved on the device and listed on the home screen.
 
 ## How it works
 

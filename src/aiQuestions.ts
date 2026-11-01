@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import { AiDifficulty, AiLanguage, AiModel } from './aiOptions';
 import { Difficulty, Question } from './data/questions';
 import { hash } from './hash';
 
@@ -14,7 +15,14 @@ const LOCAL_URL = 'http://localhost:8788/api/ai-questions';
 // The AI can be slow, so wait a good while before giving up.
 const REQUEST_TIMEOUT_MS = 65_000;
 const MAX_AVOID = 15;
-const LEVELS: Difficulty[] = ['easy', 'easy', 'medium', 'medium', 'hard'];
+const MIXED_LEVELS: Difficulty[] = ['easy', 'easy', 'medium', 'medium', 'hard'];
+
+export type AiStyle = { difficulty: AiDifficulty; language: AiLanguage; model: AiModel };
+
+// The tag on each question: a mixed game goes easy to hard, otherwise they all match.
+function levelFor(difficulty: AiDifficulty, index: number): Difficulty {
+  return difficulty === 'mixed' ? MIXED_LEVELS[index] : difficulty;
+}
 
 // The small line shown under the error message when a reply can't be read. It
 // has no status code, because the server answered fine; the contents were bad.
@@ -53,13 +61,13 @@ function isDifficulty(value: unknown): value is Difficulty {
 
 // Asks for 5 questions about the topic. Never throws: every problem comes back
 // as `{ ok: false, detail }` so the game can show its error screen.
-export async function fetchAiQuestions(topic: string): Promise<AiResult> {
+export async function fetchAiQuestions(topic: string, style: AiStyle): Promise<AiResult> {
   const cleanTopic = topic.replace(/\s+/g, ' ').trim();
   const key = cleanTopic.toLowerCase();
   // If the AI repeats a question from earlier, ask once more before giving up.
   for (let attempt = 0; attempt < 2; attempt++) {
     const avoid = askedByTopic.get(key) ?? [];
-    const result = await requestQuestions(cleanTopic, avoid);
+    const result = await requestQuestions(cleanTopic, avoid, style);
     if (!result.ok) return result;
     askedByTopic.set(key, [...avoid, ...result.questions.map((q) => q.prompt)].slice(-MAX_AVOID));
     const fresh = result.questions.filter((q) => !seenIds.has(q.id));
@@ -71,7 +79,7 @@ export async function fetchAiQuestions(topic: string): Promise<AiResult> {
   return { ok: false, detail: 'Couldn’t get 5 new questions' };
 }
 
-async function requestQuestions(topic: string, avoid: string[]): Promise<AiResult> {
+async function requestQuestions(topic: string, avoid: string[], style: AiStyle): Promise<AiResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
@@ -80,7 +88,13 @@ async function requestQuestions(topic: string, avoid: string[]): Promise<AiResul
       response = await fetch(endpoint(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, avoid }),
+        body: JSON.stringify({
+          topic,
+          avoid,
+          difficulty: style.difficulty,
+          language: style.language,
+          model: style.model,
+        }),
         signal: controller.signal,
       });
     } catch {
@@ -88,7 +102,7 @@ async function requestQuestions(topic: string, avoid: string[]): Promise<AiResul
     }
     const body: unknown = await response.json().catch(() => null);
     if (!response.ok) return { ok: false, detail: describeFailure(response.status, body) };
-    const questions = readQuestions(body, topic);
+    const questions = readQuestions(body, topic, style.difficulty);
     return questions ? { ok: true, questions } : { ok: false, detail: UNREADABLE };
   } catch {
     // Anything unexpected still ends in the friendly error screen, never a crash.
@@ -125,7 +139,7 @@ function describeFailure(status: number, body: unknown): string {
 
 // Checks the function's answer again before the game uses it (a safety net: the
 // function already tidies the AI's reply). Returns null if anything is off.
-function readQuestions(body: unknown, topic: string): Question[] | null {
+function readQuestions(body: unknown, topic: string, difficulty: AiDifficulty): Question[] | null {
   if (!isRecord(body) || !Array.isArray(body.questions) || body.questions.length !== AI_QUESTION_COUNT) return null;
   const questions: Question[] = [];
   for (const [index, item] of body.questions.entries()) {
@@ -141,8 +155,12 @@ function readQuestions(body: unknown, topic: string): Question[] | null {
       // Not one of the Open Trivia Database categories; the topic is shown as the category.
       categoryId: 0,
       category: topic,
-      difficulty: isDifficulty(item.difficulty) ? item.difficulty : LEVELS[index],
+      difficulty: isDifficulty(item.difficulty) ? item.difficulty : levelFor(difficulty, index),
       prompt: question.trim(),
+      // The one-line "why it's right", shown once the player has answered.
+      // Set by the fact-checker when it wasn't sure the question is right.
+      ...(item.unsure === true && { unsure: true }),
+      ...(typeof item.explanation === 'string' && item.explanation.trim() && { fact: item.explanation.trim() }),
       // The correct answer is first by convention; the game shuffles the order.
       options: options.map((o) => o.trim()),
     });

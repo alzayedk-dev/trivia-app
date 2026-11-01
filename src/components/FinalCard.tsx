@@ -1,8 +1,10 @@
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import Svg from 'react-native-svg';
 import { POINTS_PER_CORRECT } from '../game';
+import { useStrings } from '../strings';
 import { colors, useAppTheme, useDesktopLayout } from '../theme';
 import { AppText } from './AppText';
+import { Direction } from './Direction';
 import { CardWatermark } from './CardWatermark';
 import { BulbArt, RaysArt } from './TriviaArt';
 
@@ -10,43 +12,51 @@ type Props = {
   score: number;
   correctCount: number;
   total: number;
+  // An AI game's line about the topic's best score, e.g. "New best for this topic!".
+  note?: string;
 };
 
-function verdict(correctCount: number, total: number): string {
+function verdictIndex(correctCount: number, total: number): number {
   const share = correctCount / total;
-  if (share === 1) return 'Perfect game!';
-  if (share >= 0.8) return 'Trivia champion!';
-  if (share >= 0.6) return 'Sharp thinking!';
-  if (share >= 0.3) return 'Good effort!';
-  return 'Better luck next round!';
+  if (share === 1) return 0;
+  if (share >= 0.8) return 1;
+  if (share >= 0.6) return 2;
+  if (share >= 0.3) return 3;
+  return 4;
 }
 
-export function FinalCard({ score, correctCount, total }: Props) {
+export function FinalCard({ score, correctCount, total, note }: Props) {
+  const { t, rtl } = useStrings();
   const theme = useAppTheme();
   const desktop = useDesktopLayout();
   return (
-    <View style={[styles.card, desktop && styles.cardDesktop]}>
+    <Direction rtl={rtl} style={[styles.card, desktop && styles.cardDesktop]}>
       <CardWatermark size={320} offset={60} />
       <Svg width={110} height={110} viewBox="0 0 200 200">
         <RaysArt color={theme.highlight} />
         <BulbArt color={theme.accent} fill={theme.highlight} markColor="#FFFFFF" />
       </Svg>
       <AppText weight="black" style={styles.title}>
-        {verdict(correctCount, total)}
+        {t.verdicts[verdictIndex(correctCount, total)]}
       </AppText>
       <AppText muted style={styles.label}>
-        TOTAL SCORE
+        {t.totalScore}
       </AppText>
       <AppText weight="black" style={[styles.score, { color: theme.accent }]}>
         {score}
       </AppText>
       <AppText weight="regular" muted style={styles.detail}>
-        {correctCount} of {total} correct · out of {total * POINTS_PER_CORRECT} points
+        {t.result(correctCount, total, total * POINTS_PER_CORRECT)}
       </AppText>
+      {!!note && (
+        <AppText weight="black" style={[styles.detail, { color: theme.accent }]}>
+          {note}
+        </AppText>
+      )}
       <AppText weight="regular" muted style={styles.detail}>
-        Next game: new questions with the same settings.
+        {t.nextGame}
       </AppText>
-    </View>
+    </Direction>
   );
 }
 
