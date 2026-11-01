@@ -246,10 +246,17 @@ function RoundView({ questions, total, offline, timerSeconds, onPlayAgain }: Rou
   else if (!answered && !fiftyFifty)
     footer = <Button label="50/50" variant="secondary" onPress={applyFiftyFifty} style={buttonStyle} />;
   else if (answered && !nextReady)
-    footer = <Button label="Loading next question…" variant="secondary" disabled onPress={() => {}} style={buttonStyle} />;
+    footer = (
+      <Button label="Loading next question…" variant="secondary" disabled onPress={() => {}} style={buttonStyle} />
+    );
   else if (answered)
     footer = (
-      <Button label={slide === total - 1 ? 'See score' : 'Next'} arrow onPress={() => goTo(slide + 1)} style={buttonStyle} />
+      <Button
+        label={slide === total - 1 ? 'See score' : 'Next'}
+        arrow
+        onPress={() => goTo(slide + 1)}
+        style={buttonStyle}
+      />
     );
 
   return (
@@ -284,7 +291,7 @@ function RoundView({ questions, total, offline, timerSeconds, onPlayAgain }: Rou
         >
           <OfflineIcon color={theme.ink} />
           <AppText weight="regular" style={styles.noticeText}>
-            Can’t reach the question server, so you’re playing My questions.
+            Can’t reach the question server, so you’re playing with the app’s built-in questions.
           </AppText>
         </View>
       )}

@@ -73,7 +73,8 @@ function sanitize(raw: (Partial<GameSettings> & { categories?: unknown }) | null
   if (!raw) return DEFAULT_SETTINGS;
   const count = Number(raw.questionCount);
   return {
-    source: raw.source === 'mine' || raw.source === 'ai' ? raw.source : 'live',
+    // "My questions" is no longer a choice; it only works behind the scenes as the offline backup.
+    source: raw.source === 'ai' ? 'ai' : 'live',
     picks: {
       // Version 1 kept a single "categories" list for live questions.
       live: cleanPicks('live', raw.picks?.live ?? raw.categories),

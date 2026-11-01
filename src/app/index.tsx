@@ -52,7 +52,6 @@ export function generateMetadata(): Metadata {
 const DIFFICULTY_LABELS: Record<Difficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
 const SOURCES: { value: QuestionSource; label: string; hint: string }[] = [
   { value: 'live', label: 'Live questions', hint: 'Fresh questions from the Open Trivia Database. Needs internet.' },
-  { value: 'mine', label: 'My questions', hint: 'Your own question set. Works offline.' },
   { value: 'ai', label: 'AI mode', hint: 'Type any topic and an AI writes questions about it. Needs internet.' },
 ];
 // Wait for the player to stop tapping before downloading for new picks.
