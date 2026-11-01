@@ -21,16 +21,9 @@ import {
 import { CATEGORIES } from '../data/categories';
 import { Difficulty } from '../data/questions';
 import { warmUp } from '../questionBank';
-import {
-  activePicks,
-  CategoryChoice,
-  MAX_QUESTIONS,
-  MIN_QUESTIONS,
-  TIMER_OPTIONS,
-  useGameSettings,
-} from '../settings';
+import { activePicks, CategoryChoice, MAX_QUESTIONS, MIN_QUESTIONS, TIMER_OPTIONS, useGameSettings } from '../settings';
 import { SHARE_MESSAGE, SHARE_URL } from '../share';
-import { colors, DIFFICULTY_COLORS, useAppTheme, useCompactLayout } from '../theme';
+import { colors, DIFFICULTY_COLORS, PressState, useAppTheme, useCompactLayout, useDesktopLayout } from '../theme';
 
 // Page title and description for the web version (also used in link previews).
 export function generateMetadata(): Metadata {
@@ -81,154 +74,193 @@ export default function HomeScreen() {
 
   const nameOf = (choice: CategoryChoice) => CATEGORIES.find((c) => c.id === choice.id)?.name ?? '';
 
+  const desktop = useDesktopLayout();
+  const logoSize = desktop ? (compact ? 120 : 168) : compact ? 72 : 96;
+
+  const hero = (
+    <View style={[styles.hero, desktop && styles.heroDesktop]}>
+      <Svg width={logoSize} height={logoSize} viewBox="0 0 200 200">
+        <RaysArt color={theme.highlight} />
+        <BulbArt color={theme.accent} fill={theme.highlightSoft} />
+      </Svg>
+      <AppText weight="black" style={[styles.title, compact && styles.titleCompact, desktop && styles.titleDesktop]}>
+        {theme.title}
+      </AppText>
+      <AppText weight="regular" muted style={[styles.tagline, desktop && styles.taglineDesktop]}>
+        {theme.tagline}
+      </AppText>
+    </View>
+  );
+
+  const setup = (
+    <>
+      <Section title="Questions from">
+        <View style={styles.sourceSwitch} accessibilityRole="radiogroup">
+          {SOURCES.map((option) => {
+            const selected = source === option.value;
+            return (
+              <Pressable
+                key={option.value}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                accessibilityLabel={option.label}
+                onPress={() => update({ source: option.value })}
+                style={({ hovered }: PressState) => [
+                  styles.sourceOption,
+                  hovered && !selected && { backgroundColor: theme.accentSoft },
+                  selected && { backgroundColor: theme.accent },
+                ]}
+              >
+                <AppText style={[styles.sourceLabel, { color: selected ? theme.accentText : theme.ink }]}>
+                  {option.label}
+                </AppText>
+              </Pressable>
+            );
+          })}
+        </View>
+        <AppText weight="regular" muted style={styles.sourceHint}>
+          {sourceHint}
+        </AppText>
+      </Section>
+
+      <Section title="Categories" hint="Pick one or more">
+        <View style={styles.chips}>
+          {sourceCategories(source).map((category) => (
+            <Chip
+              key={category.id}
+              label={category.name}
+              selected={picks.some((c) => c.id === category.id)}
+              onPress={() => toggleCategory(category.id)}
+            />
+          ))}
+        </View>
+      </Section>
+
+      <Section title="Difficulty" hint="For each category">
+        <View style={styles.rows}>
+          {picks.map((choice) => (
+            <View key={choice.id} style={styles.difficultyRow}>
+              <AppText style={styles.rowLabel} numberOfLines={2}>
+                {nameOf(choice)}
+              </AppText>
+              <View style={styles.segments}>
+                {DIFFICULTIES.map((difficulty) => {
+                  const selected = choice.difficulty === difficulty;
+                  // A level the category has no questions for can't be picked.
+                  const available = availableDifficulties(source, choice.id).includes(difficulty);
+                  const tone = DIFFICULTY_COLORS[difficulty];
+                  const label = `${nameOf(choice)}: ${DIFFICULTY_LABELS[difficulty]}`;
+                  return (
+                    <Pressable
+                      key={difficulty}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected, disabled: !available }}
+                      accessibilityLabel={available ? label : `${label} (not available)`}
+                      disabled={!available}
+                      onPress={() => setDifficulty(choice.id, difficulty)}
+                      style={[
+                        styles.segment,
+                        selected && { backgroundColor: tone.background, borderColor: tone.text },
+                        !available && styles.segmentUnavailable,
+                      ]}
+                    >
+                      <AppText style={[styles.segmentText, { color: selected ? tone.text : theme.inkMuted }]}>
+                        {DIFFICULTY_LABELS[difficulty]}
+                      </AppText>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ))}
+        </View>
+        {someUnavailable && (
+          <AppText weight="regular" muted style={styles.sourceHint}>
+            Greyed-out levels have no questions for that category.
+          </AppText>
+        )}
+      </Section>
+
+      <Section title="Questions" hint={`${MIN_QUESTIONS} to ${MAX_QUESTIONS}`}>
+        <View style={styles.stepper}>
+          <StepButton
+            label="−"
+            accessibilityLabel="Fewer questions"
+            disabled={questionCount <= MIN_QUESTIONS}
+            onPress={() => update({ questionCount: questionCount - 1 })}
+          />
+          <AppText weight="black" style={[styles.count, { color: theme.accent }]}>
+            {questionCount}
+          </AppText>
+          <StepButton
+            label="+"
+            accessibilityLabel="More questions"
+            disabled={questionCount >= MAX_QUESTIONS}
+            onPress={() => update({ questionCount: questionCount + 1 })}
+          />
+        </View>
+      </Section>
+
+      <Section title="Time per question">
+        <View style={styles.chips}>
+          {TIMER_OPTIONS.map((seconds) => (
+            <Chip
+              key={seconds ?? 'off'}
+              label={seconds === null ? 'No timer' : `${seconds}s`}
+              selected={timerSeconds === seconds}
+              onPress={() => update({ timerSeconds: seconds })}
+            />
+          ))}
+        </View>
+      </Section>
+    </>
+  );
+
+  const start = (
+    <View style={[styles.footer, desktop && styles.startDesktop]}>
+      <Button
+        label="Start"
+        arrow
+        onPress={() => router.push('/game')}
+        style={desktop ? styles.startButtonDesktop : undefined}
+      />
+      {/* Required credit for the Open Trivia Database (CC BY-SA 4.0). */}
+      {source === 'live' && (
+        <AppText weight="regular" muted style={styles.credit}>
+          Questions from Open Trivia Database (opentdb.com), CC BY-SA 4.0
+        </AppText>
+      )}
+    </View>
+  );
+
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.topBar}>
+    <SafeAreaView style={[styles.safe, desktop && styles.safeDesktop]}>
+      <View style={[styles.topBar, desktop && styles.topBarDesktop]}>
         {SHARE_URL && (
           <PillButton label="Share" icon={<ShareIcon color={theme.accent} />} onPress={() => setSharing(true)} />
         )}
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.hero}>
-          <Svg width={compact ? 72 : 96} height={compact ? 72 : 96} viewBox="0 0 200 200">
-            <RaysArt color={theme.highlight} />
-            <BulbArt color={theme.accent} fill={theme.highlightSoft} />
-          </Svg>
-          <AppText weight="black" style={[styles.title, compact && styles.titleCompact]}>
-            {theme.title}
-          </AppText>
-          <AppText weight="regular" muted style={styles.tagline}>
-            {theme.tagline}
-          </AppText>
+      {desktop ? (
+        // Computers: the logo and Start button on the left, the settings on the right.
+        <View style={styles.deskRow}>
+          <View style={styles.deskLeft}>
+            {hero}
+            {start}
+          </View>
+          <ScrollView style={styles.deskRight} contentContainerStyle={styles.deskContent}>
+            {setup}
+          </ScrollView>
         </View>
-
-        <Section title="Questions from">
-          <View style={styles.sourceSwitch} accessibilityRole="radiogroup">
-            {SOURCES.map((option) => {
-              const selected = source === option.value;
-              return (
-                <Pressable
-                  key={option.value}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected }}
-                  accessibilityLabel={option.label}
-                  onPress={() => update({ source: option.value })}
-                  style={[styles.sourceOption, selected && { backgroundColor: theme.accent }]}
-                >
-                  <AppText style={[styles.sourceLabel, { color: selected ? theme.accentText : theme.ink }]}>
-                    {option.label}
-                  </AppText>
-                </Pressable>
-              );
-            })}
-          </View>
-          <AppText weight="regular" muted style={styles.sourceHint}>
-            {sourceHint}
-          </AppText>
-        </Section>
-
-        <Section title="Categories" hint="Pick one or more">
-          <View style={styles.chips}>
-            {sourceCategories(source).map((category) => (
-              <Chip
-                key={category.id}
-                label={category.name}
-                selected={picks.some((c) => c.id === category.id)}
-                onPress={() => toggleCategory(category.id)}
-              />
-            ))}
-          </View>
-        </Section>
-
-        <Section title="Difficulty" hint="For each category">
-          <View style={styles.rows}>
-            {picks.map((choice) => (
-              <View key={choice.id} style={styles.difficultyRow}>
-                <AppText style={styles.rowLabel} numberOfLines={2}>
-                  {nameOf(choice)}
-                </AppText>
-                <View style={styles.segments}>
-                  {DIFFICULTIES.map((difficulty) => {
-                    const selected = choice.difficulty === difficulty;
-                    // A level the category has no questions for can't be picked.
-                    const available = availableDifficulties(source, choice.id).includes(difficulty);
-                    const tone = DIFFICULTY_COLORS[difficulty];
-                    const label = `${nameOf(choice)}: ${DIFFICULTY_LABELS[difficulty]}`;
-                    return (
-                      <Pressable
-                        key={difficulty}
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected, disabled: !available }}
-                        accessibilityLabel={available ? label : `${label} (not available)`}
-                        disabled={!available}
-                        onPress={() => setDifficulty(choice.id, difficulty)}
-                        style={[
-                          styles.segment,
-                          selected && { backgroundColor: tone.background, borderColor: tone.text },
-                          !available && styles.segmentUnavailable,
-                        ]}
-                      >
-                        <AppText style={[styles.segmentText, { color: selected ? tone.text : theme.inkMuted }]}>
-                          {DIFFICULTY_LABELS[difficulty]}
-                        </AppText>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-            ))}
-          </View>
-          {someUnavailable && (
-            <AppText weight="regular" muted style={styles.sourceHint}>
-              Greyed-out levels have no questions for that category.
-            </AppText>
-          )}
-        </Section>
-
-        <Section title="Questions" hint={`${MIN_QUESTIONS} to ${MAX_QUESTIONS}`}>
-          <View style={styles.stepper}>
-            <StepButton
-              label="−"
-              accessibilityLabel="Fewer questions"
-              disabled={questionCount <= MIN_QUESTIONS}
-              onPress={() => update({ questionCount: questionCount - 1 })}
-            />
-            <AppText weight="black" style={[styles.count, { color: theme.accent }]}>
-              {questionCount}
-            </AppText>
-            <StepButton
-              label="+"
-              accessibilityLabel="More questions"
-              disabled={questionCount >= MAX_QUESTIONS}
-              onPress={() => update({ questionCount: questionCount + 1 })}
-            />
-          </View>
-        </Section>
-
-        <Section title="Time per question">
-          <View style={styles.chips}>
-            {TIMER_OPTIONS.map((seconds) => (
-              <Chip
-                key={seconds ?? 'off'}
-                label={seconds === null ? 'No timer' : `${seconds}s`}
-                selected={timerSeconds === seconds}
-                onPress={() => update({ timerSeconds: seconds })}
-              />
-            ))}
-          </View>
-        </Section>
-      </ScrollView>
-
-      <View style={styles.footer}>
-        <Button label="Start" arrow onPress={() => router.push('/game')} />
-        {/* Required credit for the Open Trivia Database (CC BY-SA 4.0). */}
-        {source === 'live' && (
-          <AppText weight="regular" muted style={styles.credit}>
-            Questions from Open Trivia Database (opentdb.com), CC BY-SA 4.0
-          </AppText>
-        )}
-      </View>
+      ) : (
+        <>
+          <ScrollView contentContainerStyle={styles.content}>
+            {hero}
+            {setup}
+          </ScrollView>
+          {start}
+        </>
+      )}
 
       {SHARE_URL && (
         <ShareSheet url={SHARE_URL} message={SHARE_MESSAGE} visible={sharing} onClose={() => setSharing(false)} />
@@ -264,8 +296,9 @@ function Chip({ label, selected, onPress }: { label: string; selected: boolean; 
       accessibilityLabel={label}
       onPress={onPress}
       hitSlop={4}
-      style={({ pressed }) => [
+      style={({ pressed, hovered }: PressState) => [
         styles.chip,
+        hovered && !selected && { borderColor: theme.accent },
         selected && { backgroundColor: theme.accent, borderColor: theme.accent },
         pressed && styles.pressed,
       ]}
@@ -286,9 +319,9 @@ function StepButton({ label, accessibilityLabel, disabled, onPress }: StepProps)
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [
+      style={({ pressed, hovered }: PressState) => [
         styles.step,
-        { backgroundColor: theme.accentSoft },
+        { backgroundColor: hovered && !disabled ? theme.accentHover : theme.accentSoft },
         disabled && styles.stepDisabled,
         pressed && styles.pressed,
       ]}
@@ -304,6 +337,18 @@ const styles = StyleSheet.create({
   safe: { flex: 1, width: '100%', maxWidth: 560, alignSelf: 'center' },
   topBar: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingTop: 8, minHeight: 52 },
   content: { paddingHorizontal: 16, paddingBottom: 16, gap: 14 },
+  // Computers
+  safeDesktop: { maxWidth: 1160 },
+  topBarDesktop: { paddingHorizontal: 24 },
+  deskRow: { flex: 1, flexDirection: 'row', gap: 48, paddingHorizontal: 24, paddingBottom: 16 },
+  deskLeft: { width: 400, justifyContent: 'center', gap: 24 },
+  deskRight: { flex: 1 },
+  deskContent: { gap: 14, paddingBottom: 24, paddingRight: 8 },
+  heroDesktop: { gap: 8 },
+  titleDesktop: { fontSize: 54, lineHeight: 62, marginTop: 8 },
+  taglineDesktop: { fontSize: 19 },
+  startDesktop: { paddingHorizontal: 0, paddingBottom: 0 },
+  startButtonDesktop: { minHeight: 68 },
   hero: { alignItems: 'center', gap: 4, marginBottom: 4 },
   title: { fontSize: 40, lineHeight: 48 },
   titleCompact: { fontSize: 32, lineHeight: 40 },

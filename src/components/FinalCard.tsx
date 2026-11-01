@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import Svg from 'react-native-svg';
 import { POINTS_PER_CORRECT } from '../game';
-import { colors, useAppTheme } from '../theme';
+import { colors, useAppTheme, useDesktopLayout } from '../theme';
 import { AppText } from './AppText';
 import { CardWatermark } from './CardWatermark';
 import { BulbArt, RaysArt } from './TriviaArt';
@@ -23,8 +23,9 @@ function verdict(correctCount: number, total: number): string {
 
 export function FinalCard({ score, correctCount, total }: Props) {
   const theme = useAppTheme();
+  const desktop = useDesktopLayout();
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, desktop && styles.cardDesktop]}>
       <CardWatermark size={320} offset={60} />
       <Svg width={110} height={110} viewBox="0 0 200 200">
         <RaysArt color={theme.highlight} />
@@ -50,6 +51,8 @@ export function FinalCard({ score, correctCount, total }: Props) {
 }
 
 const styles = StyleSheet.create({
+  // Computers: capped in height so it matches the question card on a tall monitor.
+  cardDesktop: { maxHeight: 660, borderRadius: 30 },
   card: {
     flex: 1,
     backgroundColor: colors.card,

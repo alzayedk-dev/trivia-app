@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
-import { colors, useAppTheme } from '../theme';
+import { colors, PressState, useAppTheme } from '../theme';
 import { AppText } from './AppText';
 
 type Props = {
@@ -19,7 +19,11 @@ export function PillButton({ label, icon, onPress }: Props) {
       accessibilityLabel={label}
       onPress={onPress}
       hitSlop={6}
-      style={({ pressed }) => [styles.pill, pressed && { backgroundColor: theme.accentSoft }]}
+      style={({ pressed, hovered }: PressState) => [
+        styles.pill,
+        hovered && { backgroundColor: theme.accentSoft },
+        pressed && { backgroundColor: theme.accentHover },
+      ]}
     >
       {icon}
       <AppText style={[styles.label, { color: theme.accent }]}>{label}</AppText>

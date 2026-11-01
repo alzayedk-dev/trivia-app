@@ -29,7 +29,7 @@ import { buildPlan, POINTS_PER_CORRECT, RoundQuestion, shuffle, TIMED_OUT, toRou
 import { streamQuestions } from '../questionBank';
 import { GameSettings, useGameSettings } from '../settings';
 import { SHARE_MESSAGE } from '../share';
-import { useAppTheme, useCompactLayout } from '../theme';
+import { useAppTheme, useCompactLayout, useDesktopLayout } from '../theme';
 
 const NUDGE = 40;
 
@@ -133,6 +133,7 @@ type RoundProps = {
 function RoundView({ questions, total, offline, timerSeconds, onPlayAgain }: RoundProps) {
   const theme = useAppTheme();
   const compact = useCompactLayout();
+  const desktop = useDesktopLayout();
   // Sized for the planned number of questions; if the game comes up short, only the first `total` are used.
   const [picks, setPicks] = useState<(string | null)[]>(() => Array(total).fill(null));
   const [slide, setSlide] = useState(0);
@@ -207,25 +208,30 @@ function RoundView({ questions, total, offline, timerSeconds, onPlayAgain }: Rou
     setFiftyFifty({ index: slide, removed });
   };
 
+  const buttonStyle = desktop ? styles.footerButtonDesktop : undefined;
   let footer = null;
-  if (onFinal) footer = <Button label="Play again" onPress={onPlayAgain} />;
-  else if (!answered && !fiftyFifty) footer = <Button label="50/50" variant="secondary" onPress={applyFiftyFifty} />;
-  else if (answered && !nextReady) footer = <Button label="Loading next question…" variant="secondary" disabled onPress={() => {}} />;
+  if (onFinal) footer = <Button label="Play again" onPress={onPlayAgain} style={buttonStyle} />;
+  else if (!answered && !fiftyFifty)
+    footer = <Button label="50/50" variant="secondary" onPress={applyFiftyFifty} style={buttonStyle} />;
+  else if (answered && !nextReady)
+    footer = <Button label="Loading next question…" variant="secondary" disabled onPress={() => {}} style={buttonStyle} />;
   else if (answered)
-    footer = <Button label={slide === total - 1 ? 'See score' : 'Next'} arrow onPress={() => goTo(slide + 1)} />;
+    footer = (
+      <Button label={slide === total - 1 ? 'See score' : 'Next'} arrow onPress={() => goTo(slide + 1)} style={buttonStyle} />
+    );
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, desktop && styles.safeDesktop]}>
       {compact ? (
         // Short phones: Home and the score share one row to leave room for the card.
-        <View style={[styles.header, styles.topBar]}>
+        <View style={[styles.header, styles.topBar, desktop && styles.gutterDesktop]}>
           <PillButton label="Home" icon={<ChevronLeft color={theme.accent} />} onPress={goHome} />
           <View style={styles.scoreInline}>
             <ScoreCard score={score} results={results} current={slide} />
           </View>
         </View>
       ) : (
-        <View style={styles.header}>
+        <View style={[styles.header, desktop && styles.gutterDesktop]}>
           <View style={styles.topBar}>
             <PillButton label="Home" icon={<ChevronLeft color={theme.accent} />} onPress={goHome} />
             <View style={styles.brand}>
@@ -240,7 +246,10 @@ function RoundView({ questions, total, offline, timerSeconds, onPlayAgain }: Rou
       )}
 
       {offline && (
-        <View style={[styles.notice, { backgroundColor: theme.highlightSoft }]} accessibilityRole="alert">
+        <View
+          style={[styles.notice, desktop && styles.noticeDesktop, { backgroundColor: theme.highlightSoft }]}
+          accessibilityRole="alert"
+        >
           <OfflineIcon color={theme.ink} />
           <AppText weight="regular" style={styles.noticeText}>
             Can’t reach the question server, so you’re playing My questions.
@@ -263,7 +272,7 @@ function RoundView({ questions, total, offline, timerSeconds, onPlayAgain }: Rou
               <ScrollView
                 key={item.question.id}
                 style={{ width }}
-                contentContainerStyle={styles.slide}
+                contentContainerStyle={[styles.slide, desktop && styles.slideDesktop]}
                 nestedScrollEnabled
               >
                 <QuestionCard
@@ -280,7 +289,7 @@ function RoundView({ questions, total, offline, timerSeconds, onPlayAgain }: Rou
               </ScrollView>
             ))}
             {showFinal && (
-              <View style={[styles.slide, { width }]}>
+              <View style={[styles.slide, desktop && styles.slideDesktop, { width }]}>
                 <FinalCard score={score} correctCount={correctCount} total={total} />
               </View>
             )}
@@ -289,7 +298,9 @@ function RoundView({ questions, total, offline, timerSeconds, onPlayAgain }: Rou
       </View>
 
       {/* Space is kept for the button so the card doesn't jump when it appears. */}
-      <View style={styles.footer}>{footer ?? <View style={styles.footerSpacer} />}</View>
+      <View style={[styles.footer, desktop && styles.footerDesktop]}>
+        {footer ?? <View style={styles.footerSpacer} />}
+      </View>
     </SafeAreaView>
   );
 }
@@ -297,6 +308,13 @@ function RoundView({ questions, total, offline, timerSeconds, onPlayAgain }: Rou
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   safe: { flex: 1, width: '100%', maxWidth: 560, alignSelf: 'center' },
+  // Computers: a wider column, with the card centred in it and roomier margins.
+  safeDesktop: { maxWidth: 920 },
+  gutterDesktop: { paddingHorizontal: 24 },
+  noticeDesktop: { marginHorizontal: 24 },
+  slideDesktop: { paddingHorizontal: 24, justifyContent: 'center' },
+  footerDesktop: { paddingHorizontal: 24, alignItems: 'center' },
+  footerButtonDesktop: { width: '100%', maxWidth: 440 },
   header: { paddingHorizontal: 16, paddingTop: 8, gap: 10 },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   scoreInline: { flex: 1, marginLeft: 8 },

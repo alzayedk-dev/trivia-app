@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAppTheme } from '../theme';
+import { useAppTheme, useDesktopLayout } from '../theme';
 import { AppText } from './AppText';
 import { Button } from './Button';
 import { BlownBulbArt, EmptyCardsArt } from './StatusArt';
@@ -22,6 +22,9 @@ type Props = {
 // Full-screen friendly message (error, empty, not found) with an illustration
 // and up to two buttons at the bottom, where a thumb can reach them.
 export function StatusScreen({ art, title, message, primary, secondary, withBackground }: Props) {
+  const desktop = useDesktopLayout();
+  // On computers the buttons keep a sensible width instead of spanning the column.
+  const buttonStyle = desktop ? styles.buttonDesktop : undefined;
   return (
     <View style={styles.root}>
       {withBackground && <AppBackground />}
@@ -35,9 +38,11 @@ export function StatusScreen({ art, title, message, primary, secondary, withBack
             {message}
           </AppText>
         </View>
-        <View style={styles.actions}>
-          {primary && <Button label={primary.label} onPress={primary.onPress} />}
-          {secondary && <Button label={secondary.label} variant="secondary" onPress={secondary.onPress} />}
+        <View style={[styles.actions, desktop && styles.actionsDesktop]}>
+          {primary && <Button label={primary.label} onPress={primary.onPress} style={buttonStyle} />}
+          {secondary && (
+            <Button label={secondary.label} variant="secondary" onPress={secondary.onPress} style={buttonStyle} />
+          )}
         </View>
       </SafeAreaView>
     </View>
@@ -101,5 +106,7 @@ const styles = StyleSheet.create({
   body: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, gap: 12 },
   title: { fontSize: 28, lineHeight: 34, textAlign: 'center', marginTop: 12 },
   message: { fontSize: 17, lineHeight: 24, textAlign: 'center' },
+  actionsDesktop: { alignItems: 'center', paddingBottom: 32 },
+  buttonDesktop: { width: '100%', maxWidth: 420 },
   actions: { paddingHorizontal: 16, paddingBottom: 12, gap: 10 },
 });

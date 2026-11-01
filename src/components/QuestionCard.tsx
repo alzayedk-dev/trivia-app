@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { Difficulty } from '../data/questions';
 import { POINTS_PER_CORRECT, RoundQuestion, TIMED_OUT } from '../game';
-import { colors, DIFFICULTY_COLORS, useAppTheme, useCompactLayout, useLargeLayout } from '../theme';
+import { colors, DIFFICULTY_COLORS, useAppTheme, useCompactLayout, useDesktopLayout, useLargeLayout } from '../theme';
 import { AnswerButton, AnswerState } from './AnswerButton';
 import { AnswerFeedback } from './AnswerFeedback';
 import { AppText } from './AppText';
@@ -33,6 +33,7 @@ export function QuestionCard({ item, index, total, picked, onPick, timerSeconds,
   const theme = useAppTheme();
   const compact = useCompactLayout();
   const large = useLargeLayout();
+  const desktop = useDesktopLayout();
   const answered = picked !== null;
   const correct = picked === item.answer;
   const timedOut = picked === TIMED_OUT;
@@ -56,8 +57,8 @@ export function QuestionCard({ item, index, total, picked, onPick, timerSeconds,
     .filter(({ option }) => stateFor(option) !== 'faded' && (answered || !removed.includes(option)));
 
   return (
-    <View style={[styles.card, compact && styles.cardCompact]}>
-      <CardWatermark size={300} offset={70} />
+    <View style={[styles.card, compact && styles.cardCompact, desktop && (compact ? styles.cardDesktopCompact : styles.cardDesktop)]}>
+      <CardWatermark size={desktop ? 380 : 300} offset={70} />
 
       <View style={styles.meta}>
         <AppText weight="black" style={[styles.number, { backgroundColor: theme.accent, color: theme.accentText }]}>
@@ -81,7 +82,15 @@ export function QuestionCard({ item, index, total, picked, onPick, timerSeconds,
       <AppText muted style={styles.category}>
         {item.question.category.toUpperCase()}
       </AppText>
-      <AppText weight="black" style={[styles.prompt, compact && styles.promptCompact, large && styles.promptLarge]}>
+      <AppText
+        weight="black"
+        style={[
+          styles.prompt,
+          compact && styles.promptCompact,
+          large && styles.promptLarge,
+          desktop && (compact ? styles.promptDesktopCompact : styles.promptDesktop),
+        ]}
+      >
         {item.question.prompt}
       </AppText>
 
@@ -104,7 +113,7 @@ export function QuestionCard({ item, index, total, picked, onPick, timerSeconds,
             )}
           </View>
           {item.question.fact && (
-            <AppText weight="regular" style={[styles.fact, compact && styles.factCompact]}>
+            <AppText weight="regular" style={[styles.fact, compact && styles.factCompact, desktop && styles.factDesktop]}>
               {item.question.fact}
             </AppText>
           )}
@@ -113,7 +122,7 @@ export function QuestionCard({ item, index, total, picked, onPick, timerSeconds,
 
       <View style={styles.spacer} />
 
-      <View style={[styles.options, compact && styles.optionsCompact]}>
+      <View style={[styles.options, compact && styles.optionsCompact, desktop && styles.optionsGrid]}>
         {visibleOptions.map(({ option, i }) => (
           <AnswerButton
             key={option}
@@ -121,6 +130,7 @@ export function QuestionCard({ item, index, total, picked, onPick, timerSeconds,
             letter={LETTERS[i]}
             state={stateFor(option)}
             onPress={() => onPick(option)}
+            style={desktop ? styles.gridItem : undefined}
           />
         ))}
       </View>
@@ -146,6 +156,9 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   cardCompact: { padding: 12, gap: 10 },
+  // Computers: a roomier card, capped in height so it doesn't stretch on a tall monitor.
+  cardDesktop: { padding: 28, gap: 16, borderRadius: 30, maxHeight: 660 },
+  cardDesktopCompact: { padding: 20, gap: 12, borderRadius: 28, maxHeight: 660 },
   meta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   number: {
     fontSize: 15,
@@ -165,6 +178,8 @@ const styles = StyleSheet.create({
   prompt: { fontSize: 23, lineHeight: 30 },
   promptCompact: { fontSize: 20, lineHeight: 26 },
   promptLarge: { fontSize: 30, lineHeight: 38 },
+  promptDesktop: { fontSize: 32, lineHeight: 40 },
+  promptDesktopCompact: { fontSize: 26, lineHeight: 33 },
   feedback: { borderRadius: 16, padding: 12, gap: 4 },
   feedbackCompact: { padding: 10, gap: 2 },
   feedbackRight: { backgroundColor: colors.correctSoft },
@@ -182,7 +197,12 @@ const styles = StyleSheet.create({
   },
   fact: { fontSize: 15, lineHeight: 21 },
   factCompact: { fontSize: 14, lineHeight: 19 },
+  factDesktop: { fontSize: 17, lineHeight: 24 },
   spacer: { flex: 1, minHeight: 4 },
   options: { gap: 10 },
   optionsCompact: { gap: 8 },
+  // Computers: answers sit two to a row. A lone answer (once the others are
+  // hidden) fills the row.
+  optionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
+  gridItem: { flexBasis: '47%', flexGrow: 1 },
 });

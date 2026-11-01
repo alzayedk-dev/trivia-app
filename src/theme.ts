@@ -39,6 +39,8 @@ export type AppTheme = {
   accent: string;
   accentText: string;
   accentSoft: string;
+  // A slightly deeper accentSoft, for the mouse pointer resting on a soft button.
+  accentHover: string;
   // Gold for the lightbulb glow, stars and other highlights.
   highlight: string;
   highlightSoft: string;
@@ -58,6 +60,7 @@ export const THEME: AppTheme = {
   accent: '#4B47C9',
   accentText: '#FFFFFF',
   accentSoft: '#E7E7FB',
+  accentHover: '#D8D8F7',
   highlight: '#F2AE2E',
   highlightSoft: '#FFF3D6',
   background: {
@@ -83,6 +86,18 @@ export function useCompactLayout() {
   // Measure what's left after the notch / status bar and the home indicator.
   return height - insets.top - insets.bottom < COMPACT_BELOW;
 }
+
+// Windows at least this wide (laptops and desktops) get the wide layout: a
+// two-column start screen and a bigger game card with 2×2 answers.
+export const DESKTOP_MIN_WIDTH = 900;
+
+export function useDesktopLayout() {
+  return useWindowDimensions().width >= DESKTOP_MIN_WIDTH;
+}
+
+// What a Pressable's style callback receives. React Native Web also reports
+// `hovered` while a mouse pointer is over it; phones never do.
+export type PressState = { pressed: boolean; hovered?: boolean };
 
 // Tablets get larger text and buttons to fill the extra room.
 export function useLargeLayout() {

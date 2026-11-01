@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Animated, Pressable, StyleSheet } from 'react-native';
+import { Animated, Pressable, StyleSheet, ViewStyle } from 'react-native';
 import { useNativeDriver } from '../animation';
-import { colors, useCompactLayout, useLargeLayout, useAppTheme } from '../theme';
+import { colors, PressState, useAppTheme, useCompactLayout, useDesktopLayout, useLargeLayout } from '../theme';
 import { AppText } from './AppText';
 
 // idle: not answered yet. correct: picked and right. wrong: picked and wrong.
@@ -14,12 +14,15 @@ type Props = {
   letter: string;
   state: AnswerState;
   onPress: () => void;
+  // Lets the question card lay the buttons out, e.g. two per row on computers.
+  style?: ViewStyle;
 };
 
-export function AnswerButton({ label, letter, state, onPress }: Props) {
+export function AnswerButton({ label, letter, state, onPress, style }: Props) {
   const theme = useAppTheme();
   const compact = useCompactLayout();
   const large = useLargeLayout();
+  const desktop = useDesktopLayout();
   const scale = useState(() => new Animated.Value(1))[0];
   const shake = useState(() => new Animated.Value(0))[0];
 
@@ -45,16 +48,19 @@ export function AnswerButton({ label, letter, state, onPress }: Props) {
   const icon = isRight ? '✓' : state === 'wrong' ? '✕' : letter;
 
   return (
-    <Animated.View style={{ transform: [{ scale }, { translateX: shake }] }}>
+    <Animated.View style={[style, { transform: [{ scale }, { translateX: shake }] }]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={label}
         disabled={state !== 'idle'}
         onPress={onPress}
-        style={({ pressed }) => [
+        style={({ pressed, hovered }: PressState) => [
           styles.button,
           compact && styles.compact,
           large && styles.large,
+          desktop && (compact ? styles.desktopCompact : styles.desktop),
+          // The mouse pointer resting on an answer that can still be picked.
+          hovered && state === 'idle' && { borderColor: theme.accent, backgroundColor: theme.accentSoft },
           pressed && styles.pressed,
           isRight && styles.correct,
           state === 'wrong' && styles.wrong,
@@ -72,7 +78,7 @@ export function AnswerButton({ label, letter, state, onPress }: Props) {
         >
           {icon}
         </AppText>
-        <AppText style={[styles.label, large && styles.labelLarge]}>{label}</AppText>
+        <AppText style={[styles.label, (large || desktop) && styles.labelLarge]}>{label}</AppText>
       </Pressable>
     </Animated.View>
   );
@@ -93,6 +99,9 @@ const styles = StyleSheet.create({
   },
   compact: { minHeight: 52, paddingVertical: 6 },
   large: { minHeight: 70, paddingHorizontal: 16 },
+  // Computers: answers sit two to a row, so each is a little taller to be easy to hit.
+  desktop: { minHeight: 76, paddingHorizontal: 18, borderRadius: 20 },
+  desktopCompact: { minHeight: 60, paddingVertical: 8, paddingHorizontal: 16 },
   pressed: { backgroundColor: colors.optionPressed },
   correct: { borderColor: colors.correct, backgroundColor: colors.correctSoft },
   wrong: { borderColor: colors.wrong, backgroundColor: colors.wrongSoft },

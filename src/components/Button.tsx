@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, View, ViewStyle } from 'react-native';
-import { colors, useAppTheme } from '../theme';
+import { colors, PressState, useAppTheme } from '../theme';
 import { AppText } from './AppText';
 import { ArrowRight } from './Icons';
 
@@ -24,9 +24,11 @@ export function Button({ label, onPress, variant = 'primary', arrow, disabled, s
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [
+      style={({ pressed, hovered }: PressState) => [
         styles.base,
         primary ? { backgroundColor: theme.accent } : [styles.secondary, { borderColor: theme.accent }],
+        // A mouse resting on an enabled button lifts it slightly.
+        hovered && !disabled && (primary ? styles.hoverPrimary : { backgroundColor: theme.accentSoft }),
         disabled && styles.disabled,
         pressed && styles.pressed,
         style,
@@ -52,6 +54,7 @@ const styles = StyleSheet.create({
   },
   secondary: { backgroundColor: colors.card, borderWidth: 2 },
   disabled: { opacity: 0.5 },
+  hoverPrimary: { opacity: 0.92, transform: [{ translateY: -1 }] },
   content: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   pressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
   label: { fontSize: 19, textAlign: 'center' },
