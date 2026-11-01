@@ -22,7 +22,16 @@ The OpenRouter key only ever lives on the server (see below). It is never in the
 | Your computer | A file named `.env.local` in the project folder with one line: `OPENROUTER_API_KEY=sk-or-v1-...` (just the key, no quotes, no spaces, nothing around it). Git ignores this file. |
 | Vercel (the live site) | Project → **Settings → Environment Variables** → add `OPENROUTER_API_KEY`, then **redeploy** so it takes effect. |
 
-Optional: add `OPENROUTER_MODEL` in either place to use a different model without changing any code.
+## Which model
+
+The function tries these free models in order and moves to the next when one is busy, down or gives
+an answer it can't read: `google/gemma-4-26b-a4b-it:free`, then `nvidia/nemotron-3.5-super-vl:free`,
+then `google/gemma-4-31b-it:free`. It gives up after about 52 seconds in total.
+
+Optional: add `OPENROUTER_MODEL` in either place to use your own list instead, with no code changes.
+One model or several separated by commas, e.g. `nvidia/nemotron-3.5-super-vl:free,google/gemma-4-26b-a4b-it:free`.
+Any model ending in `:free` costs nothing, but it must support JSON mode. Browse them at
+openrouter.ai/models (filter by "Free" and the `response_format` parameter). Free models come and go.
 
 ## Testing on your computer
 

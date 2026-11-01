@@ -1,20 +1,28 @@
 // Vercel function for AI mode: takes a topic the player typed, asks OpenRouter's
-// free Gemma model for 5 trivia questions, and returns them as clean JSON.
+// free model for 5 trivia questions, and returns them as clean JSON. Free models are
+// often busy, so if one can't answer the next one in the list is tried.
 //
 // The OpenRouter key (OPENROUTER_API_KEY) is only ever read here, on the server,
 // so it never reaches the app or the browser. Keep this file self-contained:
 // Vercel deploys it on its own.
 
-// The free model used unless OPENROUTER_MODEL is set (in .env.local or Vercel's settings).
-const DEFAULT_MODEL = 'google/gemma-4-26b-a4b-it:free';
+// Free models, tried in order. OPENROUTER_MODEL (in .env.local or Vercel's settings) replaces
+// this list; it can hold one model or several separated by commas.
+const DEFAULT_MODELS = [
+  'google/gemma-4-26b-a4b-it:free',
+  'nvidia/nemotron-3.5-super-vl:free',
+  'google/gemma-4-31b-it:free',
+];
 const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 const SITE_URL = 'https://trivia-app-lyart-phi.vercel.app';
 // One easy-to-hard round: two easy, two medium, one hard.
 const LEVELS = ['easy', 'easy', 'medium', 'medium', 'hard'] as const;
 const MAX_TOPIC_LENGTH = 80;
 const MAX_AVOID = 15;
-// How long we wait for the AI, a little under the 60 seconds set for this function in vercel.json.
-const AI_TIMEOUT_MS = 50_000;
+// How long we spend on the AI in total, a little under the 60 seconds set for this function in vercel.json.
+const AI_BUDGET_MS = 52_000;
+// One model gets this long before we move on to the next (the last one gets whatever is left).
+const MODEL_TIMEOUT_MS = 25_000;
 // Websites allowed to call this from a browser: the app itself and local testing.
 // (Phones running the app don't send an origin, so they aren't affected.)
 const ALLOWED_ORIGINS = [
@@ -85,6 +93,34 @@ export default async function handler(req: Req, res: Res) {
   if (!topic) return fail(res, 400, 'request');
   const avoid = cleanAvoid(body.avoid);
 
+  const models = process.env.OPENROUTER_MODEL?.split(',')
+    .map((m: string) => m.trim())
+    .filter(Boolean);
+  const queue = models?.length ? models : DEFAULT_MODELS;
+  const deadline = Date.now() + AI_BUDGET_MS;
+  let failure: Failure = { status: 502, kind: 'network' };
+  for (const [index, model] of queue.entries()) {
+    const left = deadline - Date.now();
+    if (left < 3_000) break;
+    const last = index === queue.length - 1;
+    const result = await askModel(model, apiKey, topic, avoid, last ? left : Math.min(left, MODEL_TIMEOUT_MS));
+    if (result.ok) return res.status(200).json({ questions: result.questions });
+    failure = result;
+    // A rejected key or request won't get better with another model.
+    if (failure.status === 401 || failure.status === 403) break;
+  }
+  return fail(res, failure.status, failure.kind);
+}
+
+type Failure = { status: number; kind: FailureKind };
+
+async function askModel(
+  model: string,
+  apiKey: string,
+  topic: string,
+  avoid: string[],
+  timeoutMs: number,
+): Promise<{ ok: true; questions: Question[] } | ({ ok: false } & Failure)> {
   let upstream: Response;
   try {
     upstream = await fetch(ENDPOINT, {
@@ -96,7 +132,7 @@ export default async function handler(req: Req, res: Res) {
         'X-Title': 'Trivia Night',
       },
       body: JSON.stringify({
-        model: process.env.OPENROUTER_MODEL?.trim() || DEFAULT_MODEL,
+        model,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: userPrompt(topic, avoid) },
@@ -105,30 +141,28 @@ export default async function handler(req: Req, res: Res) {
         temperature: 0.8,
         max_tokens: 2500,
       }),
-      signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
+    const data = tryParse(await upstream.text());
+    const apiError = isRecord(data) && isRecord(data.error) ? data.error : null;
+    if (!upstream.ok || apiError) {
+      // OpenRouter sometimes reports an error inside a 200 reply, so check for both.
+      const status = !upstream.ok ? upstream.status : Number(apiError?.code);
+      // Log what the AI service said (never the key) so it can be read in Vercel's logs.
+      console.error('OpenRouter error', model, status, typeof apiError?.message === 'string' ? apiError.message : '');
+      return { ok: false, status: status >= 400 && status <= 599 ? status : 502, kind: 'upstream' };
+    }
+    const content = replyText(data);
+    const questions = readQuestions(content);
+    if (!questions) {
+      console.error('Could not read the AI reply', model, '(length ' + content.length + ')');
+      return { ok: false, status: 502, kind: 'unreadable' };
+    }
+    return { ok: true, questions };
   } catch (error) {
     const timedOut = error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
-    return fail(res, timedOut ? 504 : 502, timedOut ? 'timeout' : 'network');
+    return { ok: false, status: timedOut ? 504 : 502, kind: timedOut ? 'timeout' : 'network' };
   }
-
-  const data = tryParse(await upstream.text());
-  const apiError = isRecord(data) && isRecord(data.error) ? data.error : null;
-  if (!upstream.ok || apiError) {
-    // OpenRouter sometimes reports an error inside a 200 reply, so check for both.
-    const status = !upstream.ok ? upstream.status : Number(apiError?.code);
-    // Log what the AI service said (never the key) so it can be read in Vercel's logs.
-    console.error('OpenRouter error', status, typeof apiError?.message === 'string' ? apiError.message : '');
-    return fail(res, status >= 400 && status <= 599 ? status : 502, 'upstream');
-  }
-
-  const content = replyText(data);
-  const questions = readQuestions(content);
-  if (!questions) {
-    console.error('Could not read the AI reply (length ' + content.length + ')');
-    return fail(res, 502, 'unreadable');
-  }
-  return res.status(200).json({ questions });
 }
 
 function fail(res: Res, status: number, kind: FailureKind) {
