@@ -1,8 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { QuestionSource } from './data/availability';
+import { CategorySource } from './data/availability';
 import { categoryName } from './data/categories';
 import { MY_QUESTIONS } from './data/myQuestions';
 import { Difficulty, Question } from './data/questions';
+import { hash } from './hash';
 import { shuffle } from './shuffle';
 
 // Questions come from the Open Trivia Database (opentdb.com, CC BY-SA 4.0).
@@ -87,13 +88,6 @@ function enqueue<T>(task: () => Promise<T>): Promise<T> {
   const run = queue.then(task, task);
   queue = run.catch(() => {});
   return run;
-}
-
-// Small stable hash so database questions get a short, repeatable id.
-function hash(text: string): string {
-  let h = 5381;
-  for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
-  return (h >>> 0).toString(36);
 }
 
 async function request(path: string): Promise<{ response_code: number; [key: string]: unknown }> {
@@ -234,7 +228,7 @@ export type Delivery = {
 // game can come up short. Stops early if `cancelled()`.
 export async function streamQuestions(
   slots: Slot[],
-  source: QuestionSource,
+  source: CategorySource,
   onQuestion: (delivery: Delivery) => void,
   cancelled: () => boolean,
 ): Promise<void> {

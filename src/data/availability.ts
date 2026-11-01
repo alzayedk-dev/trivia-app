@@ -2,7 +2,10 @@ import { Category, CATEGORIES } from './categories';
 import { MY_COUNTS } from './myQuestions';
 import { Difficulty } from './questions';
 
-export type QuestionSource = 'live' | 'mine';
+// Where a game's questions come from. AI mode writes them from a typed topic, so
+// it has no category list.
+export type QuestionSource = 'live' | 'mine' | 'ai';
+export type CategorySource = Exclude<QuestionSource, 'ai'>;
 
 export const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard'];
 
@@ -37,12 +40,12 @@ const LIVE_COUNTS: Record<number, Record<Difficulty, number>> = {
   32: { easy: 20, medium: 20, hard: 20 },
 };
 
-function countsFor(source: QuestionSource, categoryId: number): Record<Difficulty, number> | undefined {
+function countsFor(source: CategorySource, categoryId: number): Record<Difficulty, number> | undefined {
   return source === 'live' ? LIVE_COUNTS[categoryId] : MY_COUNTS[categoryId];
 }
 
 // The difficulties a category can be played at with this source.
-export function availableDifficulties(source: QuestionSource, categoryId: number): Difficulty[] {
+export function availableDifficulties(source: CategorySource, categoryId: number): Difficulty[] {
   const counts = countsFor(source, categoryId);
   // Unknown live categories are assumed to have every level.
   if (!counts) return source === 'live' ? DIFFICULTIES : [];
@@ -50,12 +53,12 @@ export function availableDifficulties(source: QuestionSource, categoryId: number
 }
 
 // The categories a source has questions for, in the usual order.
-export function sourceCategories(source: QuestionSource): Category[] {
+export function sourceCategories(source: CategorySource): Category[] {
   return CATEGORIES.filter((c) => availableDifficulties(source, c.id).length > 0);
 }
 
 // Medium if the category has it, otherwise the first level it does have.
-export function defaultDifficulty(source: QuestionSource, categoryId: number): Difficulty {
+export function defaultDifficulty(source: CategorySource, categoryId: number): Difficulty {
   const levels = availableDifficulties(source, categoryId);
   return levels.includes('medium') ? 'medium' : (levels[0] ?? 'medium');
 }

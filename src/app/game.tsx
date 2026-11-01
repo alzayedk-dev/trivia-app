@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AI_QUESTION_COUNT, fetchAiQuestions } from '../aiQuestions';
 import { useNativeDriver } from '../animation';
 import { AppText } from '../components/AppText';
 import { Button } from '../components/Button';
@@ -46,8 +47,11 @@ export function generateMetadata(): Metadata {
 
 const goHome = () => router.dismissTo('/');
 
+// Shown when the AI can't write the questions; the small line under it says why.
+const AI_ERROR_MESSAGE = 'The AI couldn’t write your questions this time. Give it another go.';
+
 export default function GameScreen() {
-  const { settings } = useGameSettings();
+  const { settings, loaded } = useGameSettings();
   const [gameNumber, setGameNumber] = useState(0);
   const fade = useState(() => new Animated.Value(1))[0];
 
@@ -58,6 +62,9 @@ export default function GameScreen() {
     });
   };
 
+  // On a refresh, wait for the saved settings so the game starts the right way.
+  if (!loaded) return <LoadingScreen />;
+
   return (
     <Animated.View style={[styles.fill, { opacity: fade }]}>
       {/* A new key per game resets everything and fetches new questions. */}
@@ -66,53 +73,78 @@ export default function GameScreen() {
   );
 }
 
-// One game: streams its questions in (from stock, downloads or the built-in
-// backup) and shows them as they arrive, so play can start before all are ready.
+// One game. Live and My questions stream in (from stock, downloads or the
+// built-in backup) and show as they arrive, so play can start before all are
+// ready. AI games wait for the AI to write all 5 questions.
 function Game({ settings, onPlayAgain }: { settings: GameSettings; onPlayAgain: () => void }) {
-  const [plan] = useState(() => buildPlan(settings));
+  const isAi = settings.source === 'ai';
+  // AI games have no category plan: the AI writes the questions from a topic.
+  const [plan] = useState(() => (isAi ? [] : buildPlan(settings)));
   const [questions, setQuestions] = useState<RoundQuestion[]>([]);
   const [offline, setOffline] = useState(false);
   const [done, setDone] = useState(false);
   const [failed, setFailed] = useState(false);
+  // The small line under the AI error message, e.g. "Error 429 · …".
+  const [aiDetail, setAiDetail] = useState('');
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    streamQuestions(
-      plan,
-      settings.source,
-      ({ question, offlineBackup }) => {
-        setQuestions((prev) => [...prev, toRoundQuestion(question)]);
-        if (offlineBackup) setOffline(true);
-      },
-      () => cancelled,
-    )
-      .then(() => !cancelled && setDone(true))
-      .catch(() => !cancelled && setFailed(true));
+    if (settings.source === 'ai') {
+      fetchAiQuestions(settings.aiTopic).then((result) => {
+        if (cancelled) return;
+        if (result.ok) {
+          setQuestions(result.questions.map(toRoundQuestion));
+          setDone(true);
+        } else {
+          setAiDetail(result.detail);
+          setFailed(true);
+        }
+      });
+    } else {
+      streamQuestions(
+        plan,
+        settings.source,
+        ({ question, offlineBackup }) => {
+          setQuestions((prev) => [...prev, toRoundQuestion(question)]);
+          if (offlineBackup) setOffline(true);
+        },
+        () => cancelled,
+      )
+        .then(() => !cancelled && setDone(true))
+        .catch(() => !cancelled && setFailed(true));
+    }
     return () => {
       cancelled = true;
     };
-  }, [plan, settings.source, attempt]);
+  }, [plan, settings.source, settings.aiTopic, attempt]);
 
   const retry = () => {
     setQuestions([]);
     setOffline(false);
     setDone(false);
     setFailed(false);
+    setAiDetail('');
     setAttempt((n) => n + 1);
   };
 
   if (questions.length === 0) {
-    if (failed) return <ErrorScreen onRetry={retry} onHome={goHome} />;
+    if (failed) {
+      return isAi ? (
+        <ErrorScreen message={AI_ERROR_MESSAGE} detail={aiDetail} onRetry={retry} onHome={goHome} />
+      ) : (
+        <ErrorScreen onRetry={retry} onHome={goHome} />
+      );
+    }
     if (done) return <EmptyScreen onRetry={retry} onHome={goHome} />;
-    return <LoadingScreen message="Finding your questions…" />;
+    return <LoadingScreen message={isAi ? 'Writing your questions…' : 'Finding your questions…'} />;
   }
   return (
     <RoundView
       questions={questions}
       // If some slots couldn't be filled without repeating a question from this
       // session, the game is just shorter.
-      total={done ? questions.length : plan.length}
+      total={isAi ? AI_QUESTION_COUNT : done ? questions.length : plan.length}
       offline={offline}
       timerSeconds={settings.timerSeconds}
       onPlayAgain={onPlayAgain}

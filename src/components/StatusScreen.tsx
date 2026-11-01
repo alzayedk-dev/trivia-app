@@ -13,6 +13,8 @@ type Props = {
   art: ReactNode;
   title: string;
   message: string;
+  // A small line under the message, e.g. "Error 429" so it's clear why.
+  detail?: string;
   primary?: Action;
   secondary?: Action;
   // Draw the map background; needed when shown outside the normal layout.
@@ -21,7 +23,7 @@ type Props = {
 
 // Full-screen friendly message (error, empty, not found) with an illustration
 // and up to two buttons at the bottom, where a thumb can reach them.
-export function StatusScreen({ art, title, message, primary, secondary, withBackground }: Props) {
+export function StatusScreen({ art, title, message, detail, primary, secondary, withBackground }: Props) {
   const desktop = useDesktopLayout();
   // On computers the buttons keep a sensible width instead of spanning the column.
   const buttonStyle = desktop ? styles.buttonDesktop : undefined;
@@ -37,6 +39,11 @@ export function StatusScreen({ art, title, message, primary, secondary, withBack
           <AppText weight="regular" muted style={styles.message}>
             {message}
           </AppText>
+          {detail && (
+            <AppText selectable weight="regular" muted style={styles.detail}>
+              {detail}
+            </AppText>
+          )}
         </View>
         <View style={[styles.actions, desktop && styles.actionsDesktop]}>
           {primary && <Button label={primary.label} onPress={primary.onPress} style={buttonStyle} />}
@@ -54,12 +61,14 @@ type StateProps = {
   onHome?: () => void;
   withBackground?: boolean;
   message?: string;
+  detail?: string;
 };
 
 export function ErrorScreen({
   onRetry,
   onHome,
   withBackground,
+  detail,
   message = 'Something went wrong while getting your questions. Check your connection and give it another go.',
 }: StateProps) {
   const theme = useAppTheme();
@@ -68,6 +77,7 @@ export function ErrorScreen({
       art={<BlownBulbArt color={theme.accent} />}
       title="The lights flickered"
       message={message}
+      detail={detail}
       primary={onRetry && { label: 'Try again', onPress: onRetry }}
       secondary={onHome && { label: 'Home', onPress: onHome }}
       withBackground={withBackground}
@@ -106,6 +116,7 @@ const styles = StyleSheet.create({
   body: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, gap: 12 },
   title: { fontSize: 28, lineHeight: 34, textAlign: 'center', marginTop: 12 },
   message: { fontSize: 17, lineHeight: 24, textAlign: 'center' },
+  detail: { fontSize: 13, lineHeight: 18, textAlign: 'center', marginTop: 4 },
   actionsDesktop: { alignItems: 'center', paddingBottom: 32 },
   buttonDesktop: { width: '100%', maxWidth: 420 },
   actions: { paddingHorizontal: 16, paddingBottom: 12, gap: 10 },

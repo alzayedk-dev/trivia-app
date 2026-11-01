@@ -79,7 +79,7 @@ export function QuestionCard({ item, index, total, picked, onPick, timerSeconds,
       </View>
       {timerSeconds !== null && <TimerBar progress={progress} secondsLeft={secondsLeft} />}
 
-      <AppText muted style={styles.category}>
+      <AppText muted numberOfLines={1} style={styles.category}>
         {item.question.category.toUpperCase()}
       </AppText>
       <AppText
